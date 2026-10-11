@@ -57,13 +57,33 @@ object AnsiTerminal {
          * (headers, the final return code) without being a full highlight. */
         fun bold(): String = if (isAnsi) "$ESC[${code};1m" else ""
 
-        /** Reverse video (swaps fore/background) in this color, for the
-         * short highlighted labels (e.g. "[Running]") BandWidthTester uses
-         * to visually separate the status line from scrolled-up history. */
+        /** Reverse video (swaps fore/background) in this color -- used for
+         * the live progress track's filled cells, where what's wanted is a
+         * solid block of color rather than readable boxed text. */
         fun reverse(): String = if (isAnsi) "$ESC[${code};7m" else ""
+
+        /** A solid background color block with the text still readable on
+         * top (true SGR background code, not reverse-video) -- the
+         * "highlighted label" look (e.g. a boxed `sender`/`receiver` or
+         * `[Avg]`/`[Min]`/`[Max]`) real terminal dashboards use, as opposed
+         * to [reverse], which recolors whatever the terminal's own default
+         * foreground/background happen to be. */
+        fun bg(): String = if (isAnsi) "$ESC[${code + 10}m" else ""
     }
 
     /** Clear the current line and return the cursor to column 1 -- used before
      * printing a completed line over an in-progress status line. */
     fun clearLine(): String = cr() + clearToEol()
+
+    /** Wraps [text] in a solid [color] background box, e.g. `box(BLUE, "sender")`. */
+    fun box(color: Color, text: String): String = "${color.bg()}$text${reset()}"
+
+    /** A full-width horizontal rule, the same `─` character BandWidthTester's
+     * own `TerminalType.ANSI_LINE` uses (falls back to `-` when [isAnsi] is
+     * false, since the box-drawing character itself isn't an escape code and
+     * would otherwise still print on a genuinely dumb/non-UTF terminal). */
+    fun horizontalRule(width: Int): String {
+        val ch = if (isAnsi) '─' else '-'
+        return ch.toString().repeat(width)
+    }
 }
