@@ -104,10 +104,14 @@ object CliRunner {
 
                     if (newMessage) {
                         for (j in lastMessageCount until state.messages.size) {
-                            val message = state.messages[j]
+                            // The native/JNI side's own text processing leaves a trailing
+                            // newline on these -- without trim(), that embedded '\n' ends
+                            // the line before our own color-reset code, breaking it into an
+                            // unwanted extra line every time.
+                            val message = state.messages[j].trim()
                             // Skip the raw "Local Host:port .../Remote Host:port ..." entries --
                             // printConnectionLine() above already shows that information, colorized.
-                            if (!message.trimStart().startsWith("Local Host:port") &&
+                            if (!message.startsWith("Local Host:port") &&
                                 !message.startsWith("Remote Host:port")
                             ) {
                                 println("  $message")
@@ -116,7 +120,7 @@ object CliRunner {
                         lastMessageCount = state.messages.size
                     } else if (state.formattedOutputLine.isNotBlank()) {
                         if (input.isDebugging) {
-                            println("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine}${AnsiTerminal.reset()}")
+                            println("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
                         }
                         printIntervalLine(input, state)
                     }
@@ -129,9 +133,9 @@ object CliRunner {
                         print(AnsiTerminal.clearLine())
                         statusShown = false
                     }
-                    println("${AnsiTerminal.Color.RED.fg()}$message${AnsiTerminal.reset()}")
+                    println("${AnsiTerminal.Color.RED.fg()}${message.trim()}${AnsiTerminal.reset()}")
                     if (state.rawOutputLine.isNotBlank() && input.isDebugging) {
-                        println("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine}${AnsiTerminal.reset()}")
+                        println("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
                     }
                 }
             },
@@ -165,17 +169,25 @@ object CliRunner {
         add("--omit"); add(input.skip.toString())
     }
 
+    /** How many quoted argv tokens to print per line in the header -- enough
+     * that a typical token ("--connect-timeout", a hostname) still keeps
+     * each line comfortably under 80 columns, the one terminal width that's
+     * safe to assume with no way to query the caller's actual one. */
+    private const val ARGS_PER_LINE = 4
+
     private fun printHeader(input: UiInputData) {
         val timestamp = AnsiTerminal.box(AnsiTerminal.Color.GREEN, Date().toString())
         println("[$timestamp] Executing Command-line:")
-        // The quoted argv on its own indented line, deliberately not appended to
-        // the timestamp line above -- a single long line there wraps wherever the
-        // caller's terminal happens to be narrow, which can split a colored
-        // escape sequence mid-token and garble the color on some terminals.
-        val argsText = displayArgs(input).joinToString(" ") {
-            "'${AnsiTerminal.Color.PURPLE.fg()}$it${AnsiTerminal.reset()}'"
+        // Printed in short, fixed-size chunks rather than one long logical line --
+        // a single line here wraps wherever the caller's terminal happens to be
+        // narrow, splitting a colored escape sequence (or even a token itself)
+        // wherever the terminal's own column count cuts it off, which this process
+        // has no way to query or control. Chunking to a safe width sidesteps
+        // relying on the terminal's own auto-wrap at all.
+        displayArgs(input).chunked(ARGS_PER_LINE).forEach { chunk ->
+            val line = chunk.joinToString(" ") { "'${AnsiTerminal.Color.PURPLE.fg()}$it${AnsiTerminal.reset()}'" }
+            println("  $line")
         }
-        println("  $argsText")
     }
 
     /** Printed once, the first time [Iperf3RunningState.localHost]/[Iperf3RunningState.remoteHost]
@@ -185,8 +197,8 @@ object CliRunner {
      * avoid printing the same information twice). */
     private fun printConnectionLine(state: Iperf3RunningState) {
         println(
-            "  Local Host/IP: ${AnsiTerminal.Color.RED.fg()}${state.localHost}${AnsiTerminal.reset()} " +
-                "remote Host/IP: ${AnsiTerminal.Color.GREEN.fg()}${state.remoteHost}${AnsiTerminal.reset()} " +
+            "  Local Host/IP: ${AnsiTerminal.Color.RED.fg()}${state.localHost.trim()}${AnsiTerminal.reset()} " +
+                "remote Host/IP: ${AnsiTerminal.Color.GREEN.fg()}${state.remoteHost.trim()}${AnsiTerminal.reset()} " +
                 "Remote Port: ${AnsiTerminal.Color.GREEN.fg()}${state.remotePort}${AnsiTerminal.reset()}"
         )
     }
@@ -236,7 +248,10 @@ object CliRunner {
                 AnsiTerminal.gotoColumn(TRACK_COLUMN) +
                 "${trackColor.fg()}$spinner${AnsiTerminal.reset()} " +
                 "${progressTrack(input, elapsed, trackColor)}  " +
-                "${trackColor.fg()}${state.formattedOutputLine}${AnsiTerminal.reset()}"
+                // trim() -- formattedOutputLine carries a trailing '\n' from the native
+                // side's own text processing; left in, it ends the line before our
+                // color-reset code runs, surfacing as a stray extra line every time.
+                "${trackColor.fg()}${state.formattedOutputLine.trim()}${AnsiTerminal.reset()}"
         )
     }
 
