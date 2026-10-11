@@ -1,0 +1,16 @@
+iperf3KMP
+Copyright (c) 2026, Jerry Abramson
+
+This product includes software developed by third parties. See
+THIRD_PARTY_LICENSES.md in this repository for the full list and license
+texts, including:
+
+  - iperf3 (esnet/iperf), Copyright (c) 2014-2026 The Regents of the
+    University of California, through Lawrence Berkeley National
+    Laboratory. BSD-3-Clause-style license.
+
+  - JetBrains Mono Nerd Font, Copyright 2020 The JetBrains Mono NL
+    Project Authors. SIL Open Font License, Version 1.1.
+
+  - Cygwin runtime (Windows desktop build only). GPL-licensed; see
+    THIRD_PARTY_LICENSES.md for the unresolved distribution-terms note.
