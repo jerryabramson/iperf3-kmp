@@ -135,8 +135,8 @@ Desktop packaging goes through Compose Multiplatform's `compose.desktop.applicat
 
 **Quick recipe — clone to running app on a fresh Linux machine:**
 ```
-git clone https://github.com/<your-username>/iperf3KMP
-cd iperf3KMP/
+git clone https://github.com/<your-username>/iperf3-kmp
+cd iperf3-kmp/
 git submodule update --init --recursive
 ./gradlew :desktopApp:packageDeb
 sudo apt install ./desktopApp/build/compose/binaries/main/deb/iperf3kmp_1.0.0_amd64.deb

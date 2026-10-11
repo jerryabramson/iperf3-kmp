@@ -4,8 +4,8 @@
 
 **Quick recipe — clone to running app on a fresh Linux machine:**
 ```shell
-git clone https://github.com/<your-username>/iperf3KMP
-cd iperf3KMP/
+git clone https://github.com/<your-username>/iperf3-kmp
+cd iperf3-kmp/
 ```
 * (or clone with `git clone --recursive` to get it in one step).
 
@@ -130,11 +130,11 @@ This repository is **public**. Clone it with either protocol; you only need your
 
 * **SSH (recommended for interactive/day-to-day use):** add your own SSH public key under [github.com/settings/keys](https://github.com/settings/keys), then (replace `<your-username>` with the account that hosts this repo):
   ```shell
-  git clone git@github.com:<your-username>/iperf3KMP.git
+  git clone git@github.com:<your-username>/iperf3-kmp.git
   ```
 * **HTTPS (no token needed for public reads):** clone anonymously, or use a [credential helper](https://git-scm.com/docs/gitcredentials) when you push. For CI on a private fork, generate your own fine-grained token ([github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens)) scoped to that fork with `Contents: Read-only`:
   ```shell
-  git clone https://<your-own-token>@github.com/<your-username>/iperf3KMP.git
+  git clone https://<your-own-token>@github.com/<your-username>/iperf3-kmp.git
   ```
 * **No command line:** browse/download from github.com in a browser, or use `gh auth login` (GitHub CLI) for a browser-based login.
 
