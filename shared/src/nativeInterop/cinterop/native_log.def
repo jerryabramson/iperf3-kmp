@@ -1,0 +1,12 @@
+package = com.jabramson.iperf3_network_tester_kmp.nativelog
+
+# Routes Log.ios.kt's actual through a real C-native os_log() call instead
+# of Kotlin/Native's own NSLog cinterop binding — see native/native_log.h's
+# doc comment for why. native_log_write() is `static inline`, fully defined
+# in the header, so cinterop compiles it directly with no separate library
+# to build or link (same as native_format.def).
+headers = native_log.h
+headerFilter = native_log.h
+# The -I include path for native_log.h is set programmatically in
+# shared/build.gradle.kts (absolute path to repo-root/native), same as
+# native_format.def.

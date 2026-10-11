@@ -1,0 +1,20 @@
+package = com.jabramson.iperf3_network_tester_kmp.iperf3bridge
+
+# iOS talks directly to native/iperf3_bridge.c's platform-agnostic core
+# (IPERF3_NATIVE_INTEGRATION.md §8.4) — no JNI adapter involved, unlike
+# Android/desktop (native/iperf3_jni.c). Unlike native_format.h (header-only,
+# static inline, nothing to link), iperf3_bridge.c is a real compiled unit
+# that itself calls into the vendored third_party/iperf sources — this
+# cinterop needs an actual static library linked in, not just the header
+# parsed for declarations.
+headers = iperf3_bridge.h
+headerFilter = iperf3_bridge.h
+# The -I include path for iperf3_bridge.h is set programmatically in
+# shared/build.gradle.kts (absolute path to repo-root/native), same as
+# native_format.def.
+#
+# staticLibraries/libraryPaths are NOT set here — the actual libiperf3bridge.a
+# differs per iOS target (device arm64 vs simulator arm64 use different SDKs
+# and are not interchangeable even though both report arch arm64), so those
+# are passed per-target via cinterop extraOpts(-staticLibrary/-libraryPath)
+# in shared/build.gradle.kts's iOS target loop instead of hardcoded here.

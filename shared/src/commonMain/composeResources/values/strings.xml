@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name" translatable="false">iPerf3 Tester</string>
+    <string name="bus_content_description">Bus</string>
+
+</resources>

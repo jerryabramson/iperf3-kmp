@@ -1,0 +1,43 @@
+# Pinned to the RHEL 9 family (Rocky Linux 9, glibc 2.34): the package also
+# runs on Fedora 42+ and other newer glibc. Do not use fedora:latest - a newer
+# base silently raises the minimum glibc (see Dockerfile.deb).
+FROM rockylinux:9
+
+RUN dnf -y install --allowerasing \
+    rpm-build \
+    rpmdevtools \
+    curl \
+    git \
+    unzip \
+    tar \
+    clang \
+    findutils \
+    binutils \
+    gcc \
+    make \
+    && dnf clean all
+
+RUN ARCH="$(uname -m)" && \
+    case "$ARCH" in \
+        x86_64) JDK_ARCH=x64 ;; \
+        aarch64) JDK_ARCH=aarch64 ;; \
+        *) echo "Unsupported architecture for Temurin JDK download: $ARCH" >&2; exit 1 ;; \
+    esac && \
+    mkdir -p /opt/java && \
+    curl -L "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4%2B7/OpenJDK21U-jdk_${JDK_ARCH}_linux_hotspot_21.0.4_7.tar.gz" | tar -xz -C /opt/java --strip-components=1
+
+ENV JAVA_HOME=/opt/java
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+RUN mkdir -p /opt/android-sdk/cmdline-tools && \
+    curl -L -o /tmp/sdk.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" && \
+    unzip -q /tmp/sdk.zip -d /opt/android-sdk/cmdline-tools && \
+    mv /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest && \
+    rm /tmp/sdk.zip
+
+ENV ANDROID_HOME=/opt/android-sdk
+ENV PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+
+RUN yes | sdkmanager --sdk_root=$ANDROID_HOME "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+
+WORKDIR /app

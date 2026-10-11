@@ -1,0 +1,11 @@
+package = com.jabramson.iperf3_network_tester_kmp.nativeformat
+
+# Single source of truth for printf-style formatting (native/native_format.h)
+# — also used by Android (JNI, :nativeformat module) and desktop JVM (JNI).
+# format_string() is `static inline`, fully defined in the header, so
+# cinterop compiles it directly with no separate library to build or link.
+headers = native_format.h
+headerFilter = native_format.h
+# The -I include path for native_format.h is set programmatically in
+# shared/build.gradle.kts (absolute path to repo-root/native) to avoid
+# relying on def-file-relative path resolution.

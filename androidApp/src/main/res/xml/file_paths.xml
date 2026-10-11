@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Backs the FileProvider declared in AndroidManifest.xml for the History
+  screen's CSV export/Share button (see ShareCsv.android.kt), which writes
+  exports under cacheDir/csv_exports/, matching the cache-path below.
+-->
+<paths>
+    <cache-path name="csv_exports" path="csv_exports/"/>
+</paths>

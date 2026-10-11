@@ -1,0 +1,155 @@
+import org.jetbrains.compose.desktop.application.dsl.TargetFormat
+
+plugins {
+    alias(libs.plugins.kotlinJvm)
+    alias(libs.plugins.composeMultiplatform)
+    alias(libs.plugins.composeCompiler)
+}
+
+dependencies {
+    implementation(project(":shared"))
+
+    implementation(compose.desktop.currentOs)
+    implementation(libs.compose.components.resources)
+    implementation(libs.kotlinx.coroutinesSwing)
+
+    implementation(libs.compose.uiToolingPreview)
+}
+
+// Windows only: the app drives a real iperf3.exe as a child process (see
+// WindowsIperf3ProcessRunner), so the Cygwin-built exe + cygwin1.dll must
+// ship inside the app. The Compose plugin bundles everything under
+// appResourcesRootDir/<os-arch>/ (here: windows-x64/) into the packaged
+// app's resources dir and exposes it at runtime via the
+// `compose.application.resources.dir` system property - also set for
+// `:desktopApp:run`, so dev runs and the installed .msi resolve the exe
+// identically.
+// The plugin picks the subfolder by the packaging host's architecture
+// (windows-x64 / windows-arm64). On Windows ARM64 the bundled iperf3.exe is
+// still the Cygwin x86_64 build (Cygwin has no ARM64 port) and runs under
+// Prism emulation, so it is staged under whichever name the plugin expects.
+val windowsResourceSubdir = System.getProperty("os.arch").lowercase().let {
+    if (it == "aarch64" || it == "arm64") "windows-arm64" else "windows-x64"
+}
+val stageWindowsIperf3 = tasks.register<Sync>("stageWindowsIperf3") {
+    onlyIf { org.gradle.internal.os.OperatingSystem.current().isWindows }
+    dependsOn(":shared:compileIperf3ExeWindows")
+    from(project(":shared").layout.buildDirectory.dir("generated/iperf3exe/windows-x64"))
+    into(layout.buildDirectory.dir("appResources/$windowsResourceSubdir"))
+}
+
+compose.desktop {
+    application {
+        mainClass = "com.jabramson.iperf3_network_tester_kmp.MainKt"
+
+        nativeDistributions {
+            appResourcesRootDir.set(layout.buildDirectory.dir("appResources"))
+            targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
+            packageName = "iperf3KMP"
+            packageVersion = "1.0.0"
+
+            macOS {
+                iconFile.set(project.file("src/main/resources/app-icon.icns"))
+            }
+            windows {
+                iconFile.set(project.file("src/main/resources/app-icon.ico"))
+            }
+            linux {
+                iconFile.set(project.file("src/main/resources/app-icon.png"))
+                // jpackage defaults to "Categories=Unknown" in the generated
+                // .desktop file when this is unset, which most desktop
+                // environments (GNOME/KDE/XFCE) silently exclude from the
+                // application menu, even though the .deb/.rpm postinst's
+                // `xdg-desktop-menu install` runs successfully. "Utility" is
+                // a valid freedesktop.org main category - shows up under
+                // Accessories/Utilities rather than Internet ("Network").
+                menuGroup = "Utility"
+            }
+        }
+    }
+}
+
+// jpackage's Linux deb backend always emits a postinst/prerm that calls
+// `xdg-desktop-menu install`/`uninstall`, with no flag to disable it and no
+// supported way to feed jpackage a customized template through the Compose
+// Gradle plugin (its `--resource-dir` scratch dir is unconditionally wiped
+// by the same task action that invokes jpackage, before any external Gradle
+// task-ordering hook could populate it). On a system with no desktop menu
+// infrastructure at all (confirmed via a real `apt install ./x.deb` on a
+// bare Ubuntu container, e.g. what a default WSL distro looks like) that
+// command fails ("xdg-desktop-menu: No writable system menu directory
+// found."), and since the generated postinst has `set -e`, that non-zero
+// exit aborts the whole `dpkg --configure`, hard-failing the install even
+// though the app itself would otherwise work fine. So: patch the already
+// -built .deb's maintainer scripts afterward to tolerate that one command
+// failing. (The equivalent .rpm scriptlets don't `set -e`, and rpm/dnf only
+// warn - not abort - on a non-zero %post exit; confirmed via a real `dnf
+// install` on a bare Fedora container with /usr/share/applications removed,
+// which succeeded cleanly. No equivalent patch needed there unless someone
+// reports an actual rpm install failure.)
+val patchDebDesktopMenuScripts = tasks.register("patchDebDesktopMenuScripts") {
+    dependsOn("packageDeb")
+    outputs.upToDateWhen { false }
+
+    // Resolved here, at configuration time, and captured below as plain
+    // Provider<Directory> values - not by referencing `layout` (the
+    // project/script receiver) from inside doLast, which is what actually
+    // trips the configuration cache's "cannot serialize Gradle script
+    // object references" check (the same thing compileIperf3Jvm hits by
+    // capturing script-level vals directly, per its own comment in
+    // shared/build.gradle.kts). Provider<Directory> resolved ahead of time
+    // like this serializes fine.
+    val debDirProvider = layout.buildDirectory.dir("compose/binaries/main/deb")
+    val extractDirProvider = layout.buildDirectory.dir("compose/tmp/debPatch")
+
+    doLast {
+        fun run(vararg cmd: String) {
+            val process = ProcessBuilder(*cmd).redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().readText()
+            val exitCode = process.waitFor()
+            check(exitCode == 0) { "Command failed (${cmd.joinToString(" ")}):\n$output" }
+        }
+
+        val debDir = debDirProvider.get().asFile
+        val debFile = debDir.listFiles { f -> f.extension == "deb" }?.firstOrNull()
+            ?: error("No .deb found in $debDir to patch")
+        val extractDir = extractDirProvider.get().asFile
+        extractDir.deleteRecursively()
+
+        run("dpkg-deb", "-R", debFile.absolutePath, extractDir.absolutePath)
+
+        var patchedAny = false
+        for (scriptName in listOf("postinst", "prerm")) {
+            val script = extractDir.resolve("DEBIAN/$scriptName")
+            if (!script.exists()) continue
+            val original = script.readText()
+            val patched = original.replace(
+                Regex("""^(xdg-desktop-menu (?:install|uninstall) .*?)(?: \|\| true)?$""", RegexOption.MULTILINE)
+            ) { "${it.groupValues[1]} || true" }
+            if (patched != original) {
+                script.writeText(patched)
+                patchedAny = true
+            }
+        }
+        check(patchedAny) {
+            "Expected to find an `xdg-desktop-menu install/uninstall` line in " +
+                "$extractDir/DEBIAN/{postinst,prerm} - jpackage's template may have " +
+                "changed, review this task."
+        }
+
+        debFile.delete()
+        run("fakeroot", "dpkg-deb", "-b", extractDir.absolutePath, debFile.absolutePath)
+    }
+}
+// The Compose plugin registers packageDeb inside its own afterEvaluate, so
+// it doesn't exist yet at this point in top-level script evaluation -
+// tasks.named() would throw "Task with name 'packageDeb' not found".
+afterEvaluate {
+    tasks.named("packageDeb") { finalizedBy(patchDebDesktopMenuScripts) }
+}
+
+// Both the packaging tasks and `run` read appResourcesRootDir, so stage first.
+tasks.matching {
+    it.name.startsWith("package") || it.name.startsWith("createDistributable") ||
+        it.name == "run" || it.name == "prepareAppResources"
+}.configureEach { dependsOn(stageWindowsIperf3) }

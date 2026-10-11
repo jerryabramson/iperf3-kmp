@@ -1,0 +1,42 @@
+# Pinned to the OLDEST supported distro (Ubuntu 22.04, glibc 2.35): native
+# libraries record the glibc symbol versions of the machine that built them,
+# so a package built here also runs on Debian 12+ and Ubuntu 22.04+. Do not
+# use :latest - a newer base silently raises the minimum glibc (Ubuntu 26.04
+# produced GLIBC_2.38 references and would not load on 22.04/Debian 12).
+FROM ubuntu:22.04
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    dpkg-dev \
+    fakeroot \
+    curl \
+    git \
+    unzip \
+    build-essential \
+    clang
+
+RUN ARCH="$(uname -m)" && \
+    case "$ARCH" in \
+        x86_64) JDK_ARCH=x64 ;; \
+        aarch64) JDK_ARCH=aarch64 ;; \
+        *) echo "Unsupported architecture for Temurin JDK download: $ARCH" >&2; exit 1 ;; \
+    esac && \
+    mkdir -p /opt/java && \
+    curl -L "https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.4%2B7/OpenJDK21U-jdk_${JDK_ARCH}_linux_hotspot_21.0.4_7.tar.gz" | tar -xz -C /opt/java --strip-components=1
+
+ENV JAVA_HOME=/opt/java
+ENV PATH="$JAVA_HOME/bin:$PATH"
+
+RUN mkdir -p /opt/android-sdk/cmdline-tools && \
+    curl -L -o /tmp/sdk.zip "https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip" && \
+    unzip -q /tmp/sdk.zip -d /opt/android-sdk/cmdline-tools && \
+    mv /opt/android-sdk/cmdline-tools/cmdline-tools /opt/android-sdk/cmdline-tools/latest && \
+    rm /tmp/sdk.zip
+
+ENV ANDROID_HOME=/opt/android-sdk
+ENV PATH="$ANDROID_HOME/cmdline-tools/latest/bin:$PATH"
+
+RUN yes | sdkmanager --sdk_root=$ANDROID_HOME "platform-tools" "build-tools;34.0.0" "platforms;android-34"
+
+WORKDIR /app
