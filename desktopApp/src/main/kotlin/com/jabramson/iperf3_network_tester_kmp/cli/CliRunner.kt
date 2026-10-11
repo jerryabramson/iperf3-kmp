@@ -140,9 +140,43 @@ object CliRunner {
         print(AnsiTerminal.clearLine())
         print(
             "  ${AnsiTerminal.Color.YELLOW.bold()}$spinner${AnsiTerminal.reset()} " +
-                "Running ${AnsiTerminal.bold()}${formatTime(elapsed)}${AnsiTerminal.reset()} / ${totalSeconds}s"
+                "Running ${AnsiTerminal.bold()}${formatTime(elapsed)}${AnsiTerminal.reset()} / ${totalSeconds}s  " +
+                progressTrack(elapsed, totalSeconds)
         )
         System.out.flush()
+    }
+
+    /** Widest the `[---|   ]` progress track below is allowed to get, regardless
+     * of test duration. BandWidthTester's own `printProgress()` -- the design
+     * this is adapted from -- draws one track column per second of the test,
+     * which works fine for its typical ~10s runs but gets absurd for a long
+     * one (a one-hour test would need a 3600-column-wide terminal). Scaling
+     * position proportionally within a capped width avoids that. */
+    private const val PROGRESS_TRACK_WIDTH = 30
+
+    /**
+     * A `[---|      ]`-style bracketed track with a single reverse-video
+     * highlighted cell marking how far through the test's duration the
+     * current elapsed time is -- the same bracket-and-highlighted-cell
+     * technique `MonitorIPerf3Output.printProgress()` uses, adapted to a
+     * fixed, capped width instead of one column per second.
+     */
+    private fun progressTrack(elapsedSeconds: Double, totalSeconds: Int): String {
+        if (totalSeconds <= 0) return ""
+        val width = PROGRESS_TRACK_WIDTH
+        val fraction = (elapsedSeconds / totalSeconds).coerceIn(0.0, 1.0)
+        val pos = (fraction * (width - 1)).toInt().coerceIn(0, width - 1)
+        val sb = StringBuilder(width + 2)
+        sb.append('[')
+        for (i in 0 until width) {
+            when {
+                i == pos -> sb.append(AnsiTerminal.Color.YELLOW.reverse()).append(' ').append(AnsiTerminal.reset())
+                i < pos -> sb.append(AnsiTerminal.Color.YELLOW.fg()).append('-').append(AnsiTerminal.reset())
+                else -> sb.append(' ')
+            }
+        }
+        sb.append(']')
+        return sb.toString()
     }
 
     private fun printSummary(state: Iperf3RunningState?, returnCode: Int) {
