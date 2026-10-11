@@ -111,9 +111,18 @@ serves both uses; with Gradle, pass args via `--args`:
 ./gradlew :desktopApp:run --args="--help"
 ./gradlew :desktopApp:run --args="my-iperf3-server.example.com -t 10 -P 4"
 ```
-Falls back to plain text (no escape codes) when `TERM` looks like a dumb terminal, so redirected-to-a-file
-and CI/log-capture output stays readable. See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag
-list — it mirrors [BandWidthTester](https://github.com/jerryabramson/BandWidthTester), an earlier standalone
+Once the app is installed from a package (`.deb`/`.rpm`/`.dmg`/`.msi`), [`bin/iperf3kmp`](bin/iperf3kmp)
+(macOS/Linux) and [`bin/iperf3kmp.ps1`](bin/iperf3kmp.ps1)/[`bin/iperf3kmp.bat`](bin/iperf3kmp.bat) (Windows)
+find the installed launcher at its OS-specific location and run it, so you don't need to know jpackage's
+per-platform install layout:
+```shell
+bin/iperf3kmp my-iperf3-server.example.com -t 10 -P 4
+```
+ANSI output works out of the box on Windows too — unlike `TERM`-only detection, this checks the OS directly,
+since Windows consoles support ANSI natively but don't set a `TERM` env var at all. Falls back to plain text
+(no escape codes) elsewhere when `TERM` looks like a dumb terminal, so redirected-to-a-file and CI/log-capture
+output stays readable. See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag list — it mirrors
+[BandWidthTester](https://github.com/jerryabramson/BandWidthTester), an earlier standalone
 iperf3 CLI wrapper this mode is modeled on.
 
 ### Running tests

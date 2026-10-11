@@ -1,5 +1,7 @@
 # Shell scripts must stay LF even on Windows checkouts (bash chokes on CRLF).
 *.sh text eol=lf
 gradlew text eol=lf
-# Windows batch files need CRLF.
+bin/iperf3kmp text eol=lf
+# Windows batch/PowerShell files use CRLF.
 *.bat text eol=crlf
+*.ps1 text eol=crlf

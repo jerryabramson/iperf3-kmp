@@ -1,0 +1,50 @@
+#!/bin/sh
+#
+# Finds and runs the installed iperf3KMP desktop launcher (from the .deb,
+# .rpm, or .dmg package), forwarding all arguments and its real exit code --
+# so with the app installed via a package, this just works:
+#
+#   iperf3kmp my-iperf3-server.example.com -t 10 -P 4
+#   iperf3kmp --help
+#
+# Plain POSIX sh (no bashisms), so it runs the same under /bin/sh and bash.
+# Covers Linux (.deb and .rpm both install to the same path, confirmed in
+# CLAUDE.md/docs/platform-builds/linux-{deb,rpm}.md) and macOS (.dmg, the
+# standard app-bundle layout) -- see README.md's windows-x86_64.md/
+# windows-arm64.md counterparts for the Windows PowerShell/cmd equivalents
+# of this script.
+#
+# Override: set IPERF3KMP_BIN to the launcher's path directly to skip the
+# search below -- useful for a non-default install location.
+
+set -eu
+
+if [ -n "${IPERF3KMP_BIN:-}" ]; then
+    exec "$IPERF3KMP_BIN" "$@"
+fi
+
+os=$(uname -s)
+
+if [ "$os" = "Darwin" ]; then
+    for candidate in \
+        "/Applications/iperf3KMP.app/Contents/MacOS/iperf3KMP" \
+        "$HOME/Applications/iperf3KMP.app/Contents/MacOS/iperf3KMP"
+    do
+        if [ -x "$candidate" ]; then
+            exec "$candidate" "$@"
+        fi
+    done
+elif [ "$os" = "Linux" ]; then
+    if [ -x "/opt/iperf3kmp/bin/iperf3KMP" ]; then
+        exec "/opt/iperf3kmp/bin/iperf3KMP" "$@"
+    fi
+fi
+
+# Not at a known install location -- maybe it's already on PATH under its own name.
+if command -v iperf3KMP >/dev/null 2>&1; then
+    exec iperf3KMP "$@"
+fi
+
+echo "iperf3kmp: could not find the installed iperf3KMP launcher (checked the usual $os install location)." >&2
+echo "If it's installed somewhere else, set IPERF3KMP_BIN=/path/to/iperf3KMP and re-run." >&2
+exit 1

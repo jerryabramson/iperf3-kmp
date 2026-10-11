@@ -14,14 +14,26 @@ package com.jabramson.iperf3_network_tester_kmp.cli
  */
 object AnsiTerminal {
     /**
-     * True when stdout is a real ANSI-capable terminal. A missing, empty, or
-     * "dumb" `TERM` (the same signal BandWidthTester's `TerminalType` checks)
-     * means no escape codes -- redirected-to-a-file and CI/log-capture output
-     * stays plain text instead of filling up with raw escape bytes.
+     * True when stdout is a real ANSI-capable terminal.
+     *
+     * On Windows, this is unconditionally true, the same override
+     * BandWidthTester's `TerminalType` constructor already uses -- Windows
+     * consoles (PowerShell, cmd, Windows Terminal) support ANSI VT escape
+     * sequences natively since Windows 10 but don't set a `TERM` env var at
+     * all, so checking `TERM` there would always read as "dumb" and silently
+     * disable every escape code this object produces, which is wrong, not
+     * conservative. Everywhere else, a missing, empty, or "dumb" `TERM`
+     * means no escape codes -- redirected-to-a-file and CI/log-capture
+     * output stays plain text instead of filling up with raw escape bytes.
      */
     val isAnsi: Boolean = run {
-        val term = System.getenv("TERM")
-        !(term.isNullOrEmpty() || term.equals("dumb", ignoreCase = true))
+        val osName = System.getProperty("os.name") ?: ""
+        if (osName.startsWith("Windows", ignoreCase = true)) {
+            true
+        } else {
+            val term = System.getenv("TERM")
+            !(term.isNullOrEmpty() || term.equals("dumb", ignoreCase = true))
+        }
     }
 
     private const val ESC = "\u001B"
