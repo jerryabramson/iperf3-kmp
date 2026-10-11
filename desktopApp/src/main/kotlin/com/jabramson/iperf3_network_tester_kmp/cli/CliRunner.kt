@@ -41,19 +41,28 @@ object CliRunner {
     private val lock = Any()
     private val tick = charArrayOf('-', '\\', '|', '/')
 
+    /** The only place this module appends a line break -- everywhere else
+     * writes to stdout/stderr go through this (or [AnsiTerminal.clearLine]'s
+     * own explicit `\r` for in-place status-line redraws), never `println()`,
+     * so every newline in this output is one this code chose to emit, not
+     * one contributed implicitly by `println()`'s platform line separator
+     * or left over in a string this code didn't write itself. */
+    private fun writeLine(text: String = "") = print(text + AnsiTerminal.NL)
+    private fun writeErrLine(text: String = "") = System.err.print(text + AnsiTerminal.NL)
+
     /** @return the process exit code: iperf3's own return code on a real run,
      * 0 after printing `--help`, 1 on a command-line usage error. */
     fun run(args: Array<String>): Int {
         val options = CliArgs.parse(args)
 
         if (options.help) {
-            println(CliArgs.usage())
+            writeLine(CliArgs.usage())
             return 0
         }
         if (options.error != null) {
-            System.err.println("${AnsiTerminal.Color.RED.fg()}${options.error}${AnsiTerminal.reset()}")
-            System.err.println()
-            System.err.println(CliArgs.usage())
+            writeErrLine("${AnsiTerminal.Color.RED.fg()}${options.error}${AnsiTerminal.reset()}")
+            writeErrLine()
+            writeErrLine(CliArgs.usage())
             return 1
         }
 
@@ -114,13 +123,13 @@ object CliRunner {
                             if (!message.startsWith("Local Host:port") &&
                                 !message.startsWith("Remote Host:port")
                             ) {
-                                println("  $message")
+                                writeLine("  $message")
                             }
                         }
                         lastMessageCount = state.messages.size
                     } else if (state.formattedOutputLine.isNotBlank()) {
                         if (input.isDebugging) {
-                            println("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
+                            writeLine("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
                         }
                         printIntervalLine(input, state)
                     }
@@ -133,9 +142,9 @@ object CliRunner {
                         print(AnsiTerminal.clearLine())
                         statusShown = false
                     }
-                    println("${AnsiTerminal.Color.RED.fg()}${message.trim()}${AnsiTerminal.reset()}")
+                    writeLine("${AnsiTerminal.Color.RED.fg()}${message.trim()}${AnsiTerminal.reset()}")
                     if (state.rawOutputLine.isNotBlank() && input.isDebugging) {
-                        println("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
+                        writeLine("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
                     }
                 }
             },
@@ -177,7 +186,7 @@ object CliRunner {
 
     private fun printHeader(input: UiInputData) {
         val timestamp = AnsiTerminal.box(AnsiTerminal.Color.GREEN, Date().toString())
-        println("[$timestamp] Executing Command-line:")
+        writeLine("[$timestamp] Executing Command-line:")
         // Printed in short, fixed-size chunks rather than one long logical line --
         // a single line here wraps wherever the caller's terminal happens to be
         // narrow, splitting a colored escape sequence (or even a token itself)
@@ -186,7 +195,7 @@ object CliRunner {
         // relying on the terminal's own auto-wrap at all.
         displayArgs(input).chunked(ARGS_PER_LINE).forEach { chunk ->
             val line = chunk.joinToString(" ") { "'${AnsiTerminal.Color.PURPLE.fg()}$it${AnsiTerminal.reset()}'" }
-            println("  $line")
+            writeLine("  $line")
         }
     }
 
@@ -196,7 +205,7 @@ object CliRunner {
      * also adds to [Iperf3RunningState.messages], which [runTest] skips to
      * avoid printing the same information twice). */
     private fun printConnectionLine(state: Iperf3RunningState) {
-        println(
+        writeLine(
             "  Local Host/IP: ${AnsiTerminal.Color.RED.fg()}${state.localHost.trim()}${AnsiTerminal.reset()} " +
                 "remote Host/IP: ${AnsiTerminal.Color.GREEN.fg()}${state.remoteHost.trim()}${AnsiTerminal.reset()} " +
                 "Remote Port: ${AnsiTerminal.Color.GREEN.fg()}${state.remotePort}${AnsiTerminal.reset()}"
@@ -243,7 +252,7 @@ object CliRunner {
         // real numbered sequence) -- Kotlin's % can return a negative result for a
         // negative operand (unlike mod()), so % here would throw indexing tick[-1].
         val spinner = tick[state.intervalNumber.mod(tick.size)]
-        println(
+        writeLine(
             "  ${AnsiTerminal.bold()}$label${AnsiTerminal.reset()}" +
                 AnsiTerminal.gotoColumn(TRACK_COLUMN) +
                 "${trackColor.fg()}$spinner${AnsiTerminal.reset()} " +
@@ -316,7 +325,7 @@ object CliRunner {
         if (data.value <= 0.0) "N/A" else "%,.2f".format(data.value)
 
     private fun printStatRow(label: String, labelColor: AnsiTerminal.Color, valueColor: String, data: UnitConvertedData) {
-        println(
+        writeLine(
             AnsiTerminal.gotoColumn(STAT_LABEL_COLUMN) + AnsiTerminal.box(labelColor, label) +
                 AnsiTerminal.gotoColumn(STAT_VALUE_COLUMN) +
                 "$valueColor${formatStat(data)}${AnsiTerminal.reset()}  " +
@@ -325,19 +334,19 @@ object CliRunner {
     }
 
     private fun printSummary(state: Iperf3RunningState?, returnCode: Int) {
-        println()
+        writeLine()
         if (state != null && state.intervalNumber >= 0) {
-            println("  ${getSampleSize(state)}")
-            println()
+            writeLine("  ${getSampleSize(state)}")
+            writeLine()
             printStatRow("Avg", AnsiTerminal.Color.GREY, "", state.currentAvg)
             printStatRow("Min", AnsiTerminal.Color.RED, AnsiTerminal.Color.RED.fg(), state.currentMin)
             printStatRow("Max", AnsiTerminal.Color.BLUE, AnsiTerminal.Color.BLUE.fg(), state.currentMax)
             printStatRow("Median", AnsiTerminal.Color.PURPLE, AnsiTerminal.Color.PURPLE.fg(), state.currentMedian)
             printStatRow("StdDev", AnsiTerminal.Color.GREY, "", state.currentStandardDeviation)
         }
-        println(AnsiTerminal.horizontalRule(80))
+        writeLine(AnsiTerminal.horizontalRule(80))
         val rcColor = if (returnCode == 0) AnsiTerminal.Color.GREEN else AnsiTerminal.Color.RED
         val avgSuffix = state?.currentAvg?.takeIf { it.value > 0.0 }?.let { " [Avg=${formatStat(it)} ${it.unit}]" } ?: ""
-        println("Return Code: ${rcColor.fg()}${"%03d".format(returnCode)}${AnsiTerminal.reset()}$avgSuffix")
+        writeLine("Return Code: ${rcColor.fg()}${"%03d".format(returnCode)}${AnsiTerminal.reset()}$avgSuffix")
     }
 }

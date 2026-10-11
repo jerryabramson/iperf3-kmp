@@ -38,6 +38,14 @@ object AnsiTerminal {
 
     private const val ESC = "\u001B"
 
+    /** A plain line feed, deliberately not `System.lineSeparator()` (which
+     * is `\r\n` on Windows) -- [CliRunner] already emits its own explicit
+     * `\r` via [cr]/[clearLine] where a carriage return is actually wanted,
+     * so letting `println()` additionally append a platform line separator
+     * would risk a doubled `\r` on Windows. Every line this module writes
+     * ends with exactly this, nothing implicit. */
+    const val NL = "\n"
+
     fun reset(): String = if (isAnsi) "$ESC[0m" else ""
     fun bold(): String = if (isAnsi) "$ESC[1m" else ""
     fun clearToEol(): String = if (isAnsi) "$ESC[K" else ""
