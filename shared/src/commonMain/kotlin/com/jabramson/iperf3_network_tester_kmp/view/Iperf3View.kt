@@ -170,7 +170,8 @@ fun RunIperf3Screen(viewModel: Iperf3RunViewModel = viewModel { Iperf3RunViewMod
                 ErrorSection(
                     errorLines = uiExecutionState.errorLines,
                     isWide = isWideWindow(),
-                    isTall = isTallWindow()
+                    isTall = isTallWindow(),
+                    isTiny = isTinyWindow()
                 )
 
                 IperfMessagesSection(
@@ -193,6 +194,7 @@ fun RunIperf3Screen(viewModel: Iperf3RunViewModel = viewModel { Iperf3RunViewMod
                     preview = false,
                     isWide = isWideWindow(),
                     isTall = isTallWindow(),
+                    isTiny = isTinyWindow()
                 )
             }
         }

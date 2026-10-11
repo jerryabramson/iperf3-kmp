@@ -1,8 +1,6 @@
 package com.jabramson.iperf3_network_tester_kmp.utils
 
-import androidx.compose.runtime.retain.retain
-import androidx.compose.ui.text.intl.Locale
-import com.jabramson.iperf3_network_tester_kmp.utils.Units.UNIT_LENTGH
+import com.jabramson.iperf3_network_tester_kmp.utils.Units.UNIT_LENGTH
 import com.jabramson.iperf3_network_tester_kmp.utils.Units.BITS_UNIT
 import com.jabramson.iperf3_network_tester_kmp.utils.Units.GBITS
 import com.jabramson.iperf3_network_tester_kmp.utils.Units.GB_UNIT
@@ -33,7 +31,9 @@ object Units {
     const val TBITS = 1024.0 * GBITS
     const val BITS = 1.0
 
-    const val UNIT_LENTGH = "Gbits/sec".length
+    const val UNIT_LENGTH = "Gbits/sec".length
+    //                      "seconds  "
+    //                      "Reported "
     const val KB_UNIT = "Kbits/sec"
     const val MB_UNIT = "Mbits/sec"
     const val GB_UNIT = "Gbits/sec"
@@ -79,7 +79,7 @@ fun toIntString(unitConvertedData: UnitConvertedData): String =
 fun toWholeNumber(unitConvertedData: UnitConvertedData, preview: Boolean = false): String {
     val ret: String
     if (!preview) {
-        val unitLengthFormat = "%${UNIT_LENTGH}.${UNIT_LENTGH}s"
+        val unitLengthFormat = "%${UNIT_LENGTH}.${UNIT_LENGTH}s"
         ret =
             if (unitConvertedData.value == 0.toDouble())
                 formatString("%-13.13s  $unitLengthFormat", "00.00", unitConvertedData.unit)
@@ -101,7 +101,7 @@ fun formatGeneric(value: Int, unit: String, preview: Boolean = false): String = 
 fun formatGeneric(value: Double, unit: String, preview: Boolean = false): String {
     val ret: String
     if (!preview) {
-        val unitLengthFormat = "%${UNIT_LENTGH}.${UNIT_LENTGH}s"
+        val unitLengthFormat = "%${UNIT_LENGTH}.${UNIT_LENGTH}s"
         ret =
             if (value != 0.toDouble())
                 formatString("%9.3f $unitLengthFormat", value,  unit)
@@ -117,7 +117,7 @@ fun formatGeneric(value: Double, unit: String, preview: Boolean = false): String
 fun formatGeneric(value: Long, unit: String, preview: Boolean = false): String {
     val ret: String
     if (!preview) {
-        val unitLengthFormat = "%${UNIT_LENTGH}.${UNIT_LENTGH}s"
+        val unitLengthFormat = "%-${UNIT_LENGTH}.${UNIT_LENGTH}s"
         val d = value.toDouble()
         ret =
             if (value != 0.toLong())

@@ -104,7 +104,8 @@ fun ResultsRow(
                 }
             }
         } else {
-            val style = if (isTall) monoStyle.copy(fontSize = 16.sp) else monoStyle.copy(fontSize = 12.sp)
+            val style = if (!isWide) monoStyle.copy(fontSize = 12.sp) else monoStyle.copy(fontSize = 13.sp)
+
             Row(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier.fillMaxWidth().padding(start = 10.dp, end = 10.dp)

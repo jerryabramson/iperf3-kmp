@@ -21,7 +21,11 @@ import androidx.compose.material3.Text
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.sp
 import kotlinx.coroutines.NonCancellable.start
 
@@ -46,15 +50,19 @@ fun IperfMessagesSection(
 ) {
     val isActive = (isRunning && !isFinished && latestLine.isEmpty())
     val isErrors = errorLines.isNotEmpty()
-    var fontSize = 11.sp
-    var maxHeight = 50.dp
+
+    var fontSize: TextUnit
+    val maxHeight: Dp
+
     if (latestLine.isEmpty()) {
-        fontSize = 18.sp
+        fontSize = 17.sp
         maxHeight = 160.dp
     } else {
-        if (isActive || isErrors) {
-            if (isTiny) 10.sp
-            else if (isTall && !isWide) 15.sp else 12.sp
+        fontSize = if (isActive || isErrors || isDebugMode) {
+            if (isTiny) 12.sp
+            else if (isTall || isWide) 17.sp
+            else 15.sp
+
         } else {
             if (isTall) 14.sp else {
                 if (isTiny) 9.sp else if (isWide) 10.sp else 11.sp
@@ -64,18 +72,14 @@ fun IperfMessagesSection(
         if (!isDebugMode) {
             if (isErrors || isActive) {
                 maxHeight = 900.dp
-                fontSize = if (isTall && !isWide && !isTiny) 15.sp else 12.sp
             } else {
                 maxHeight = 600.dp
-                fontSize = if (isTall && !isWide && !isTiny) 13.sp else 10.sp
             }
         } else {
             if (isActive || isErrors) {
-                maxHeight = if (isTall) 120.dp else 90.dp
-                fontSize = if (isTall && !isWide) 12.sp else 9.sp
+                maxHeight = if (isTall) 160.dp else 100.dp
             } else {
-                maxHeight = if (isTall && !isWide && !isTiny) 130.dp else 50.dp
-                fontSize = if (isTall && !isWide && !isTiny) 12.sp else 10.sp
+                maxHeight = if (isTall && !isWide && !isTiny) 120.dp else 90.dp
             }
         }
     }
@@ -94,7 +98,8 @@ fun IperfMessagesSection(
                     .height(maxHeight)
             ) {
                 Text("iPerf3 Messages",
-                    style = if (latestLine.isEmpty()) MaterialTheme.typography.titleLarge else  MaterialTheme.typography.titleSmall,
+                    style = style,
+                    color = MaterialTheme.colorScheme.tertiaryFixedDim,
                     modifier = Modifier.padding(top = 2.dp, start = 10.dp))
                 HorizontalDivider(
                     thickness = 1.dp,

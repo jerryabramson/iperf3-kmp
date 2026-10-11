@@ -25,7 +25,6 @@ import com.jabramson.iperf3_network_tester_kmp.utils.LogConfig
 import com.jabramson.iperf3_network_tester_kmp.utils.formatTime
 import com.jabramson.iperf3_network_tester_kmp.utils.resultsToCsv
 import com.jabramson.iperf3_network_tester_kmp.utils.shareCsv
-import com.jabramson.iperf3_network_tester_kmp.utils.toWholeNumber
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UploadDownload.isDownload
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -439,6 +438,7 @@ class Iperf3RunViewModel() : ViewModel() {
      * Launch the iperf3 binary (notice that this is an asynchronous operation).
      */
     fun launch() {
+
         _uiInputDataStateFlow.update {
             it.copy(
                 // Ensure the user can see selections during the run
@@ -558,7 +558,7 @@ class Iperf3RunViewModel() : ViewModel() {
         // Provide the return code to the UI.
         val outputCount = _uiExecutionDataStateFlow.value.iperf3RunningState.intervalNumber
         if (outputCount >= 0) {
-            val time = "   Time:  ${formatTime(testTime)}"
+            val time = "   Time:   ${formatTime(testTime)}"
             val exe = getSampleSize(_uiExecutionDataStateFlow.value.iperf3RunningState)
             val max = getMaximum(_uiExecutionDataStateFlow.value.iperf3RunningState)
             val min = getMinimum(_uiExecutionDataStateFlow.value.iperf3RunningState)

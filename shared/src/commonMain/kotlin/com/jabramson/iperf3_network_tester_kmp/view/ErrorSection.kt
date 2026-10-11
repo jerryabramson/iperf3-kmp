@@ -29,15 +29,18 @@ fun ErrorSection(
     monoStyle: TextStyle = mesloMonoTextStyle(),
     isWide: Boolean = false,
     isTall: Boolean = false,
+    isTiny: Boolean = false
 ) {
     if (errorLines.isEmpty()) return
-
-    var style = if (!isWide && !isTall) monoStyle.copy(fontSize =  12.sp) else monoStyle.copy(fontSize =  15.sp)
+    val fontSize = if (isTiny) 12.sp
+    else if (isTall || isWide) 20.sp
+    else 15.sp
+    val style = monoStyle.copy(fontSize =  fontSize)
     var totalOutput: Int = 0
     errorLines.forEach  { l -> totalOutput += l.length }
 
 
-    if (errorLines.size > 2 || totalOutput > 80) style = monoStyle.copy(fontSize =  12.sp)
+    //if (errorLines.size > 2 || totalOutput > 80) style = monoStyle.copy(fontSize =  12.sp)
     Column(
         horizontalAlignment = Alignment.Start,
         modifier = Modifier.padding(start = 10.dp, end =  10.dp).fillMaxWidth(),

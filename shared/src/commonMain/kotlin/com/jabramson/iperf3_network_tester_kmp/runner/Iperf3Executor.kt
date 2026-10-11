@@ -6,6 +6,9 @@ import com.jabramson.iperf3_network_tester_kmp.model.Iperf3RunningState
 import com.jabramson.iperf3_network_tester_kmp.utils.Iperf3OutputMonitor
 import com.jabramson.iperf3_network_tester_kmp.utils.Log
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiInputData
+import com.jabramson.iperf3_network_tester_kmp.viewmodel.DefaultInputData.HOST_NAME
+import kotlinx.coroutines.delay
+import kotlin.time.Duration.Companion.seconds
 
 /**
  * Manages the lifecycle and logic of running iPerf3-based network tests.
@@ -105,6 +108,22 @@ class Iperf3Executor(
       */
     suspend fun startTest(params: UiInputData): Int {
         Log.d(tag, "iperf3 JNI Bridge Starting")
+
+        if (params.hostName == HOST_NAME) {
+            iperf3OutputMonitor.reset(params)
+            updateProgress(calcProgress(0.0.toFloat()), 0)
+            stderr(iperf3OutputMonitor.getCurrentLineResult(), "❌ Error: Must supply a valid hostname")
+            delay(duration = 1.seconds)
+            iperf3OutputMonitor.processCancelLine("iperf3 homepage at: https://software.es.net/iperf/")
+            stdout(iperf3OutputMonitor.getCurrentLineResult(), true)
+            delay(duration = 2.seconds)
+            iperf3OutputMonitor.processCancelLine("Public Server List: https://iperf.fr/iperf-servers.php")
+            stdout(iperf3OutputMonitor.getCurrentLineResult(), true)
+            delay(duration = 3.seconds)
+            onTestComplete()
+            updateProgress(1.0f, 100)
+            return -1
+        }
 
         /*
          * 1. Initialize the iperf3 parameters, do some basic validations

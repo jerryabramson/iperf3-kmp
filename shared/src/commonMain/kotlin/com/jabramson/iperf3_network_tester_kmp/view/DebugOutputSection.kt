@@ -40,9 +40,14 @@ fun DebugOutputSection(
     preview: Boolean = true,
     isWide: Boolean = false,
     isTall: Boolean = false,
+    isTiny: Boolean = false
 ) {
     if (!isDebugging) return
-    val fontSize = if (isWide) 10.sp else 14.sp
+    val fontSize = if (isTiny) 11.sp
+    else if (isTall || isWide) 14.sp
+    else 12.sp
+
+
     val style = monoStyle.copy(fontSize = fontSize)
     val color =
         if (isOmitted) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.tertiary

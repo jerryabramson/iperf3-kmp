@@ -44,7 +44,7 @@ fun main() = application {
         icon = painterResource(Res.drawable.app_icon),
     ) {
         LaunchedEffect(Unit) {
-            window.minimumSize = Dimension(800, 600) // pixels!
+            window.minimumSize = Dimension(840, 600) // pixels!
         }
         App()
     }
