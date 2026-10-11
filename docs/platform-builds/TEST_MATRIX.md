@@ -94,7 +94,7 @@ not as the final evidence for x86_64.
 | Ubuntu aarch64 (GB10, Grace Blackwell) | ✅ | `.deb` arm64 native build and install on a second distro |
 | Fedora x86_64 | ✅ (owner has it) | `.rpm` x86_64 native and container |
 | AMD Ryzen AI Developer Platform 1 (local x86_64 test host), Debian-derived, glibc 2.41 | ✅ | `.deb` amd64 install and test (2026-10-04) |
-| Debian or Ubuntu x86_64 | ⬜ No standard Debian/Ubuntu x86_64 machine. `amd-halo` (`rex`) is Debian-derived, glibc 2.41, and is only used for install tests | `.deb` amd64 container cell still needed |
+| Debian or Ubuntu x86_64 | ⬜ No standard Debian/Ubuntu x86_64 machine. One available x86_64 box is Debian-derived (glibc 2.41) but not a standard release, and is only used for install tests | `.deb` amd64 container cell still needed |
 | Clean Windows 11 x64 (snapshot) | ✅ (owner has it) | Re-verify the checklist from a truly clean start |
 | **Clean Windows 11 ARM64 VM (snapshot)** | ⬜ recommended | Same, for ARM64 |
 | **Clean macOS user account** | ⬜ recommended | `.dmg` install |
