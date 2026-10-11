@@ -5,6 +5,7 @@ import androidx.compose.ui.window.Window
 
 
 import androidx.compose.ui.window.application
+import com.jabramson.iperf3_network_tester_kmp.cli.CliRunner
 import iperf3kmp.shared.generated.resources.Res
 import iperf3kmp.shared.generated.resources.app_icon
 import org.jetbrains.compose.resources.painterResource
@@ -37,7 +38,22 @@ import java.awt.Dimension
  * composables have no min-size parameter. You can reach the underlying
  * ComposeWindow (a JFrame) via the window property in composable scope
  */
-fun main() = application {
+/**
+ * With command-line arguments, runs a real iperf3 test in CLI mode (see
+ * `cli/CliRunner.kt`) and exits -- no Compose window at all. With none,
+ * launches the GUI exactly as before. The same jpackage-built launcher
+ * binary serves both uses, the same way `java -jar BandWidthTester.jar
+ * <server>` does for https://github.com/jerryabramson/BandWidthTester, the
+ * standalone iperf3 CLI wrapper CLI mode is modeled on.
+ */
+fun main(args: Array<String>) {
+    if (args.isNotEmpty()) {
+        kotlin.system.exitProcess(CliRunner.run(args))
+    }
+    runGui()
+}
+
+private fun runGui() = application {
     Window(
         onCloseRequest = ::exitApplication,
         title = "iperf3KMP",

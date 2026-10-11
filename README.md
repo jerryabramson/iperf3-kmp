@@ -101,6 +101,21 @@ See [WINDOWS_DECISION_REVERSAL_CASE_STUDY.md](docs/desktop/WINDOWS_DECISION_REVE
 the full story of why this was originally rejected and what changed. An MSI built on a Windows ARM64 machine has a native ARM64 JVM (built and installed on a
 Parallels VM); the x64 MSI also runs there under Prism. Only `iperf3.exe` is x86_64 in both
 (Cygwin has no ARM64 port); a native ARM64 `iperf3.exe` is planned but not started — see [WINDOWS_ARM64_IPERF3_PLAN.md](docs/desktop/WINDOWS_ARM64_IPERF3_PLAN.md).
+
+### Desktop — command-line mode (no GUI)
+Pass any arguments and the desktop app runs a real iperf3 test from the terminal instead of opening
+the GUI — the exact same engine (real libiperf, live output parsing, stall detection), just rendered
+with ANSI escape codes instead of Compose widgets. The packaged launcher (`iperf3KMP`/`iperf3KMP.exe`)
+serves both uses; with Gradle, pass args via `--args`:
+```shell
+./gradlew :desktopApp:run --args="--help"
+./gradlew :desktopApp:run --args="my-iperf3-server.example.com -t 10 -P 4"
+```
+Falls back to plain text (no escape codes) when `TERM` looks like a dumb terminal, so redirected-to-a-file
+and CI/log-capture output stays readable. See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag
+list — it mirrors [BandWidthTester](https://github.com/jerryabramson/BandWidthTester), an earlier standalone
+iperf3 CLI wrapper this mode is modeled on.
+
 ### Running tests
 Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 
