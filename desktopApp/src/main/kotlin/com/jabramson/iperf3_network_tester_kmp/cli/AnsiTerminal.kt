@@ -62,21 +62,40 @@ object AnsiTerminal {
          * solid block of color rather than readable boxed text. */
         fun reverse(): String = if (isAnsi) "$ESC[${code};7m" else ""
 
-        /** A solid background color block with the text still readable on
-         * top (true SGR background code, not reverse-video) -- the
-         * "highlighted label" look (e.g. a boxed `sender`/`receiver` or
-         * `[Avg]`/`[Min]`/`[Max]`) real terminal dashboards use, as opposed
-         * to [reverse], which recolors whatever the terminal's own default
-         * foreground/background happen to be. */
-        fun bg(): String = if (isAnsi) "$ESC[${code + 10}m" else ""
+        /** A true SGR background-color code, bold, no implied foreground --
+         * [AnsiCodes.ANSI_COLOR.getReverseHighlightCode] in BandWidthTester,
+         * confusingly named there too (it's a real background code, not a
+         * reverse-video trick). Used for the progress track's solid filled
+         * cells, where a uniform color block is wanted regardless of the
+         * terminal's own default foreground/background pairing -- unlike
+         * [reverse], legibility of text on top isn't a concern here, there
+         * is no text, just a space character. */
+        fun fillCell(): String = if (isAnsi) "$ESC[${code + 10};1m" else ""
     }
+
+    /** The two Nerd Font Powerline "round" glyphs BandWidthTester's own
+     * `TerminalType.FANCY_RIGHT_ARROW`/`FANCY_LEFT_ARROW` use as the leading,
+     * rounded cap of its progress track -- safe to rely on here since this
+     * project's own terminal font (`CLAUDE.md`'s font section) is already a
+     * real Nerd Font. Right-pointing for a left-to-right (upload) track,
+     * left-pointing for a right-to-left (reverse/download) one. */
+    const val ARROW_RIGHT = ""
+    const val ARROW_LEFT = ""
 
     /** Clear the current line and return the cursor to column 1 -- used before
      * printing a completed line over an in-progress status line. */
     fun clearLine(): String = cr() + clearToEol()
 
-    /** Wraps [text] in a solid [color] background box, e.g. `box(BLUE, "sender")`. */
-    fun box(color: Color, text: String): String = "${color.bg()}$text${reset()}"
+    /** Wraps [text] in a boxed [color] label, e.g. `box(BLUE, "sender")` --
+     * reverse video ([Color.reverse]), not a true background code: swapping
+     * relative to whatever the terminal's own default foreground/background
+     * happen to be is what keeps the text inside readable on any theme
+     * (BandWidthTester's own `[Avg]`/`[Min]`/`[Max]`/`sender`/`receiver`
+     * labels use exactly this -- `getReverseBoldCode`, not a background
+     * code). A true background code here would leave the label text in
+     * whatever the terminal's default foreground already is, which for a
+     * light color like grey-on-dark-terminal is unreadably low-contrast. */
+    fun box(color: Color, text: String): String = "${color.reverse()}$text${reset()}"
 
     /** A full-width horizontal rule, the same `─` character BandWidthTester's
      * own `TerminalType.ANSI_LINE` uses (falls back to `-` when [isAnsi] is

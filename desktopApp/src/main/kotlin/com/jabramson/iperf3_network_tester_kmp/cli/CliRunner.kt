@@ -167,10 +167,15 @@ object CliRunner {
 
     private fun printHeader(input: UiInputData) {
         val timestamp = AnsiTerminal.box(AnsiTerminal.Color.GREEN, Date().toString())
+        println("[$timestamp] Executing Command-line:")
+        // The quoted argv on its own indented line, deliberately not appended to
+        // the timestamp line above -- a single long line there wraps wherever the
+        // caller's terminal happens to be narrow, which can split a colored
+        // escape sequence mid-token and garble the color on some terminals.
         val argsText = displayArgs(input).joinToString(" ") {
             "'${AnsiTerminal.Color.PURPLE.fg()}$it${AnsiTerminal.reset()}'"
         }
-        println("[$timestamp] Executing Command-line: $argsText")
+        println("  $argsText")
     }
 
     /** Printed once, the first time [Iperf3RunningState.localHost]/[Iperf3RunningState.remoteHost]
@@ -186,12 +191,22 @@ object CliRunner {
         )
     }
 
+    /** Column the tick/bracket block always starts at, regardless of the
+     * preceding label's width -- fixed via [AnsiTerminal.gotoColumn] rather
+     * than left-padding with spaces, the same technique
+     * `MonitorIPerf3Output`'s own `leftColumnMarker`/`columnSet` jumps use,
+     * so the track lines up the same whether the label is "Running "or
+     * "Skipping" or the live line has no label yet at all. */
+    private const val TRACK_COLUMN = 14
+
     private fun printStatusLine(input: UiInputData, elapsedSeconds: String, spinner: Char) {
         val elapsed = elapsedSeconds.toDoubleOrNull() ?: 0.0
         print(AnsiTerminal.clearLine())
         print(
-            "  ${AnsiTerminal.Color.YELLOW.bold()}$spinner${AnsiTerminal.reset()} " +
-                "Running  ${progressTrack(input, elapsed, AnsiTerminal.Color.YELLOW)}"
+            "  ${AnsiTerminal.bold()}Running${AnsiTerminal.reset()}" +
+                AnsiTerminal.gotoColumn(TRACK_COLUMN) +
+                "${AnsiTerminal.Color.YELLOW.bold()}$spinner${AnsiTerminal.reset()} " +
+                progressTrack(input, elapsed, AnsiTerminal.Color.YELLOW)
         )
         System.out.flush()
     }
@@ -204,19 +219,28 @@ object CliRunner {
      * real one (matching BandWidthTester's own red=skip/green=data scheme),
      * and uses [Iperf3RunningState.formattedOutputLine] verbatim for the
      * interval range/bitrate/streams text -- the same validated text the
-     * GUI shows, not re-derived here. */
+     * GUI shows, not re-derived here. The tick character sits between the
+     * label and the bracket (matching the reference's own
+     * `Skipping 1.00-2.00   + (...)` layout), not at the start of the line.
+     */
     private fun printIntervalLine(input: UiInputData, state: Iperf3RunningState) {
         val label = if (state.omitted) "Skipping" else "Running "
         val trackColor = if (state.omitted) AnsiTerminal.Color.RED else AnsiTerminal.Color.GREEN
         val elapsed = (state.intervalNumber + 1).toDouble().coerceAtMost(input.durationSecs.toDouble())
+        // intervalNumber is -1 for an omitted interval (it doesn't count toward the
+        // real numbered sequence) -- Kotlin's % can return a negative result for a
+        // negative operand (unlike mod()), so % here would throw indexing tick[-1].
+        val spinner = tick[state.intervalNumber.mod(tick.size)]
         println(
-            "  ${AnsiTerminal.bold()}$label${AnsiTerminal.reset()} " +
+            "  ${AnsiTerminal.bold()}$label${AnsiTerminal.reset()}" +
+                AnsiTerminal.gotoColumn(TRACK_COLUMN) +
+                "${trackColor.fg()}$spinner${AnsiTerminal.reset()} " +
                 "${progressTrack(input, elapsed, trackColor)}  " +
                 "${trackColor.fg()}${state.formattedOutputLine}${AnsiTerminal.reset()}"
         )
     }
 
-    /** Widest the `[---|   ]`/`(---|   )` progress track below is allowed to
+    /** Widest the `[##>   ]`/`(   <##)` progress track below is allowed to
      * get, regardless of test duration. BandWidthTester's own
      * `printProgress()` -- the design this is adapted from -- draws one
      * track column per second of the test, which works fine for its typical
@@ -226,15 +250,18 @@ object CliRunner {
     private const val PROGRESS_TRACK_WIDTH = 24
 
     /**
-     * A bracketed track with a single highlighted cell marking how far
-     * through the test's duration [elapsedSeconds] is -- the same
-     * bracket-and-highlighted-cell technique
-     * `MonitorIPerf3Output.printProgress()` uses, adapted to a fixed,
-     * capped width instead of one column per second. Direction-aware like
-     * the original: `(---|   )` with the highlighted cell moving
-     * right-to-left for a reverse-mode (download) test, `[---|   ]`
-     * left-to-right otherwise, matching `printProgress()`'s own
-     * `leftBracket`/`rightBracket`/arrow-direction swap for `args.reverse`.
+     * A bracketed track with a solid-color filled run and a rounded leading
+     * cap marking how far through the test's duration [elapsedSeconds] is --
+     * adapted from `MonitorIPerf3Output.printProgress()`'s own technique
+     * (a Nerd Font `arrow` glyph as the leading cap, [AnsiTerminal.Color.fillCell]
+     * solid-background cells trailing behind it) to a fixed, capped width
+     * instead of one column per second of real elapsed time. Direction-aware
+     * like the original: `(   <##)` with the cap pointing left and the fill
+     * growing right-to-left for a reverse-mode (download) test, `[##>   ]`
+     * left-to-right otherwise. When the test is complete, a second cap is
+     * drawn at the trailing end too, closing the bar into a solid rounded
+     * pill -- matching `printProgress()`'s own extra cap it adds once
+     * `resultEntry >= args.times`.
      */
     private fun progressTrack(input: UiInputData, elapsedSeconds: Double, color: AnsiTerminal.Color): String {
         val totalSeconds = input.durationSecs
@@ -243,14 +270,17 @@ object CliRunner {
         val fraction = (elapsedSeconds / totalSeconds).coerceIn(0.0, 1.0)
         val filled = (fraction * (width - 1)).toInt().coerceIn(0, width - 1)
         val pos = if (input.isReverse) width - 1 - filled else filled
+        val complete = fraction >= 1.0
+        val arrow = if (input.isReverse) AnsiTerminal.ARROW_LEFT else AnsiTerminal.ARROW_RIGHT
 
         val sb = StringBuilder(width + 2)
         sb.append(if (input.isReverse) '(' else '[')
         for (i in 0 until width) {
+            val filledCell = (!input.isReverse && i < pos) || (input.isReverse && i > pos)
+            val endCap = complete && ((!input.isReverse && i == width - 1) || (input.isReverse && i == 0))
             when {
-                i == pos -> sb.append(color.reverse()).append(' ').append(AnsiTerminal.reset())
-                (!input.isReverse && i < pos) || (input.isReverse && i > pos) ->
-                    sb.append(color.fg()).append('-').append(AnsiTerminal.reset())
+                i == pos || endCap -> sb.append(color.fg()).append(AnsiTerminal.bold()).append(arrow).append(AnsiTerminal.reset())
+                filledCell -> sb.append(color.fillCell()).append(' ').append(AnsiTerminal.reset())
                 else -> sb.append(' ')
             }
         }
@@ -258,12 +288,22 @@ object CliRunner {
         return sb.toString()
     }
 
+    /** Fixed columns for the stat block below, the same `gotoColumn`-over-
+     * space-padding technique [TRACK_COLUMN] uses -- padding with a literal
+     * string of spaces only lines up by coincidence (it assumes every label
+     * renders at exactly the width its character count suggests, which
+     * isn't guaranteed once escape codes and variable terminal fonts are
+     * involved); an absolute column jump doesn't depend on that. */
+    private const val STAT_LABEL_COLUMN = 18
+    private const val STAT_VALUE_COLUMN = 30
+
     private fun formatStat(data: UnitConvertedData): String =
         if (data.value <= 0.0) "N/A" else "%,.2f".format(data.value)
 
     private fun printStatRow(label: String, labelColor: AnsiTerminal.Color, valueColor: String, data: UnitConvertedData) {
         println(
-            "                 ${AnsiTerminal.box(labelColor, label)}      " +
+            AnsiTerminal.gotoColumn(STAT_LABEL_COLUMN) + AnsiTerminal.box(labelColor, label) +
+                AnsiTerminal.gotoColumn(STAT_VALUE_COLUMN) +
                 "$valueColor${formatStat(data)}${AnsiTerminal.reset()}  " +
                 "${AnsiTerminal.bold()}${data.unit}${AnsiTerminal.reset()}"
         )
