@@ -36,7 +36,7 @@ object CliArgs {
         var skip = DefaultInputData.SKIP
         var timeout = DefaultInputData.TIMEOUT
         var isForceFlush = DefaultInputData.FORCE_FLUSH
-        var isReverse = DefaultInputData.IS_REVERSE
+        var isReverse = false
         var isDebugging = DefaultInputData.IS_DEBUGGING
 
         var i = 0

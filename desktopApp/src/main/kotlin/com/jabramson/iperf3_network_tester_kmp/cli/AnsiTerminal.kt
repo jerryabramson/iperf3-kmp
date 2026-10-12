@@ -49,6 +49,7 @@ object AnsiTerminal {
     fun reset(): String = if (isAnsi) "$ESC[0m" else ""
     fun bold(): String = if (isAnsi) "$ESC[1m" else ""
     fun clearToEol(): String = if (isAnsi) "$ESC[K" else ""
+
     fun cr(): String = if (isAnsi) "\r" else ""
 
     /** Move the cursor to the given 1-based column on the current line, so a
@@ -56,7 +57,7 @@ object AnsiTerminal {
     fun gotoColumn(col: Int): String = if (isAnsi) "$ESC[${col}G" else ""
 
     enum class Color(private val code: Int) {
-        RED(31), GREEN(32), YELLOW(33), BLUE(34), PURPLE(35), GREY(37);
+        RED(31), GREEN(32), YELLOW(33), BLUE(34), PURPLE(35), CYAN(36), GREY(37);
 
         /** Plain foreground color. */
         fun fg(): String = if (isAnsi) "$ESC[${code}m" else ""
@@ -110,7 +111,7 @@ object AnsiTerminal {
      * false, since the box-drawing character itself isn't an escape code and
      * would otherwise still print on a genuinely dumb/non-UTF terminal). */
     fun horizontalRule(width: Int): String {
-        val ch = if (isAnsi) '─' else '-'
-        return ch.toString().repeat(width)
+        val ch = if (isAnsi) "─" else "-"
+        return ch.repeat(width)
     }
 }

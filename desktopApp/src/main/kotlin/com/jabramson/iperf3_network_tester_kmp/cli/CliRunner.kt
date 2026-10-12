@@ -1,12 +1,22 @@
 package com.jabramson.iperf3_network_tester_kmp.cli
 
+import com.jabramson.iperf3_network_tester_kmp.cli.AnsiTerminal.ARROW_LEFT
+import com.jabramson.iperf3_network_tester_kmp.cli.AnsiTerminal.ARROW_RIGHT
+import com.jabramson.iperf3_network_tester_kmp.cli.AnsiTerminal.isAnsi
+import com.jabramson.iperf3_network_tester_kmp.cli.CliRunner.TRACK_COLUMN
+import com.jabramson.iperf3_network_tester_kmp.cli.CliRunner.runTest
 import com.jabramson.iperf3_network_tester_kmp.model.Iperf3RunningState
 import com.jabramson.iperf3_network_tester_kmp.runner.Iperf3Executor
+import com.jabramson.iperf3_network_tester_kmp.runner.IperfRunner
 import com.jabramson.iperf3_network_tester_kmp.utils.UnitConvertedData
 import com.jabramson.iperf3_network_tester_kmp.utils.getSampleSize
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiInputData
+import com.sun.org.apache.bcel.internal.util.Args
+import com.sun.tools.javac.tree.TreeInfo.args
+import jdk.internal.joptsimple.internal.Messages.message
 import kotlinx.coroutines.runBlocking
-import java.util.Date
+import java.util.*
+
 
 /**
  * Command-line entry point for running a real iperf3 test without the GUI,
@@ -39,7 +49,7 @@ import java.util.Date
  */
 object CliRunner {
     private val lock = Any()
-    private val tick = charArrayOf('-', '\\', '|', '/')
+    private val tick = listOf("-", "\\", "|", "/")
 
     /** The only place this module appends a line break -- everywhere else
      * writes to stdout/stderr go through this (or [AnsiTerminal.clearLine]'s
@@ -48,6 +58,11 @@ object CliRunner {
      * one contributed implicitly by `println()`'s platform line separator
      * or left over in a string this code didn't write itself. */
     private fun writeLine(text: String = "") = print(text + AnsiTerminal.NL)
+
+    private fun write(text: String = "") {
+        print(text)
+    }
+
     private fun writeErrLine(text: String = "") = System.err.print(text + AnsiTerminal.NL)
 
     /** @return the process exit code: iperf3's own return code on a real run,
@@ -73,7 +88,13 @@ object CliRunner {
      * `onTime` ticks far faster than this (observed: roughly every 10-15ms) --
      * nobody can perceive updates faster than this anyway, and redrawing on
      * every single tick is a lot of wasted terminal I/O for a long-running test. */
-    private const val STATUS_REDRAW_INTERVAL_MS = 150L
+    private const val STATUS_REDRAW_INTERVAL_MS = 50L
+
+    /** Formats one message the shared parser added to [Iperf3RunningState.messages]
+     * for terminal display -- a "Bridge" status line (e.g. "Test completed
+     * successfully.") gets the blue-boxed treatment, anything else prints plain. */
+    private fun formatMessage(message: String): String =
+        if (message.contains("Bridge")) "[" + AnsiTerminal.box(AnsiTerminal.Color.BLUE, message) + "]" else message
 
     private fun runTest(input: UiInputData): Int {
         var tickIndex = 0
@@ -82,7 +103,23 @@ object CliRunner {
         var lastStatusRedrawAt = 0L
         var connectionLinePrinted = false
         var lastMessageCount = 0
-
+        var lastInterval = 0
+        var lastOmittedCount = 0L
+        var loops = 0
+        var firstBridge = true
+        // Once the live single-row progress redraw starts, a message line can no
+        // longer be writeLine()'d into the scroll stream the way it could during
+        // setup -- scrolling the terminal invalidates the absolute-column
+        // assumptions the live row's gotoColumn() redraw depends on, and the two
+        // styles (append-a-permanent-line vs. redraw-the-same-row) fight each
+        // other visually. Once this flips true, a message is deferred instead and
+        // shown as its own block right before the final summary -- matching what
+        // BandWidthTester's own reference effectively does too, since in its
+        // design connection/setup messages are always finished printing before
+        // the live row's first draw.
+        var liveRowStarted = false
+        val deferredMessages = mutableListOf<String>()
+        val deferredErrorMessages = mutableListOf<String>()
         printHeader(input)
 
         val executor = Iperf3Executor(
@@ -91,7 +128,8 @@ object CliRunner {
                 synchronized(lock) {
                     val now = System.currentTimeMillis()
                     if (now - lastStatusRedrawAt >= STATUS_REDRAW_INTERVAL_MS) {
-                        printStatusLine(input, elapsedSeconds, tick[tickIndex % tick.size])
+                        liveRowStarted = true
+                        printStatusLine(input, elapsedSeconds, tick[tickIndex % tick.size], lastState)
                         tickIndex++
                         statusShown = true
                         lastStatusRedrawAt = now
@@ -102,7 +140,7 @@ object CliRunner {
                 synchronized(lock) {
                     lastState = state
                     if (statusShown) {
-                        print(AnsiTerminal.clearLine())
+                        //print(AnsiTerminal.clearLine())
                         statusShown = false
                     }
 
@@ -123,29 +161,49 @@ object CliRunner {
                             if (!message.startsWith("Local Host:port") &&
                                 !message.startsWith("Remote Host:port")
                             ) {
-                                writeLine("  $message")
+                                if (message.contains("Bridge")) {
+                                    if (firstBridge) {
+                                        writeLine()
+                                        writeLine(formatMessage(message))
+                                        firstBridge = false
+                                    } else {
+                                        deferredMessages.add(formatMessage(message))
+                                    }
+                                } else if (liveRowStarted) {
+                                    deferredMessages.add(formatMessage(message))
+                                }
                             }
                         }
                         lastMessageCount = state.messages.size
                     } else if (state.formattedOutputLine.isNotBlank()) {
-                        if (input.isDebugging) {
-                            writeLine("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
+                        // intervalNumber is always -1 for an omitted interval (see the
+                        // tick[] crash fix a few commits back), so it never satisfies
+                        // "> lastInterval" on its own -- that silently dropped every
+                        // "Skipping"/omitted line. totalOmitted is the shared parser's
+                        // own running count, bumped once per real omitted interval, so
+                        // it's a safe second way to detect "this is a new one to show".
+                        val isNewOmitted = state.omitted && state.totalOmitted > lastOmittedCount
+                        if (state.intervalNumber > lastInterval || isNewOmitted) {
+                            liveRowStarted = true
+                            if (input.isDebugging) {
+                                writeLine("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
+                            }
+                            printIntervalLine(input, state)
+                            lastInterval = state.intervalNumber.toInt()
+                            lastOmittedCount = state.totalOmitted
+                        } else if (!input.isDebugging) {
+                            val spinner = tick[loops.mod(tick.size)]
+                            print("${AnsiTerminal.gotoColumn(TRACK_COLUMN)}$spinner")
                         }
-                        printIntervalLine(input, state)
+                        loops++
+                        System.out.flush()
                     }
                 }
             },
             stderr = { state, message ->
                 synchronized(lock) {
                     lastState = state
-                    if (statusShown) {
-                        print(AnsiTerminal.clearLine())
-                        statusShown = false
-                    }
-                    writeLine("${AnsiTerminal.Color.RED.fg()}${message.trim()}${AnsiTerminal.reset()}")
-                    if (state.rawOutputLine.isNotBlank() && input.isDebugging) {
-                        writeLine("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
-                    }
+                    deferredErrorMessages.add(message)
                 }
             },
             onTestComplete = { }
@@ -154,8 +212,23 @@ object CliRunner {
         val returnCode = runBlocking { executor.startTest(input) }
 
         synchronized(lock) {
-            if (statusShown) print(AnsiTerminal.clearLine())
+            writeLine()
+            if (deferredMessages.isNotEmpty()) {
+                writeLine(AnsiTerminal.horizontalRule(80))
+                deferredMessages.forEach { writeLine(it) }
+            }
+            writeLine(AnsiTerminal.horizontalRule(80))
             printSummary(lastState, returnCode)
+            if (statusShown) {
+                writeLine()
+                writeLine(AnsiTerminal.horizontalRule(80))
+                statusShown = false
+            }
+            if (deferredErrorMessages.isNotEmpty()) {
+                writeLine(AnsiTerminal.horizontalRule(80))
+                deferredErrorMessages.forEach { writeLine("${AnsiTerminal.Color.RED.fg()}${it.trim()}${AnsiTerminal.reset()}") }
+            }
+
         }
 
         return returnCode
@@ -182,11 +255,11 @@ object CliRunner {
      * that a typical token ("--connect-timeout", a hostname) still keeps
      * each line comfortably under 80 columns, the one terminal width that's
      * safe to assume with no way to query the caller's actual one. */
-    private const val ARGS_PER_LINE = 4
+    private const val ARGS_PER_LINE = 5
 
     private fun printHeader(input: UiInputData) {
         val timestamp = AnsiTerminal.box(AnsiTerminal.Color.GREEN, Date().toString())
-        writeLine("[$timestamp] Executing Command-line:")
+        writeLine("[$timestamp] Executing Command-line: ")
         // Printed in short, fixed-size chunks rather than one long logical line --
         // a single line here wraps wherever the caller's terminal happens to be
         // narrow, splitting a colored escape sequence (or even a token itself)
@@ -206,9 +279,11 @@ object CliRunner {
      * avoid printing the same information twice). */
     private fun printConnectionLine(state: Iperf3RunningState) {
         writeLine(
+            AnsiTerminal.gotoColumn(1) + AnsiTerminal.clearToEol() +
             "  Local Host/IP: ${AnsiTerminal.Color.RED.fg()}${state.localHost.trim()}${AnsiTerminal.reset()} " +
                 "remote Host/IP: ${AnsiTerminal.Color.GREEN.fg()}${state.remoteHost.trim()}${AnsiTerminal.reset()} " +
                 "Remote Port: ${AnsiTerminal.Color.GREEN.fg()}${state.remotePort}${AnsiTerminal.reset()}"
+                    + AnsiTerminal.clearToEol()
         )
     }
 
@@ -218,18 +293,33 @@ object CliRunner {
      * `MonitorIPerf3Output`'s own `leftColumnMarker`/`columnSet` jumps use,
      * so the track lines up the same whether the label is "Running "or
      * "Skipping" or the live line has no label yet at all. */
-    private const val TRACK_COLUMN = 14
+    private const val TRACK_COLUMN = 24
 
-    private fun printStatusLine(input: UiInputData, elapsedSeconds: String, spinner: Char) {
+    /** Widest of "  Skipping"/"  STALLED"/"  Running" -- every label is padded
+     * out to this with [statusLabel], so a shorter label drawn over a longer
+     * one (both via absolute [AnsiTerminal.gotoColumn] positioning, never a
+     * clear-to-EOL first) fully overwrites it instead of leaving a stray
+     * trailing character or two from whatever was there before. */
+    private const val LABEL_WIDTH = 10
+
+    private fun statusLabel(omitted: Boolean, stalled: Boolean): String =
+        (if (omitted) "  Skipping" else if (stalled) "  STALLED" else "  Running").padEnd(LABEL_WIDTH)
+
+    private fun printStatusLine(input: UiInputData, elapsedSeconds: String, spinner: String, lastState: Iperf3RunningState?) {
         val elapsed = elapsedSeconds.toDoubleOrNull() ?: 0.0
-        print(AnsiTerminal.clearLine())
+        // No real Iperf3RunningState exists yet for the interval currently ticking --
+        // predict its label from whether we're still inside the configured omit
+        // window, and carry over the last known stall state, rather than always
+        // claiming "Running" even while skipping or stalled.
+        val label = statusLabel(omitted = elapsed < input.skip, stalled = lastState?.stalled == true)
+
         print(
-            "  ${AnsiTerminal.bold()}Running${AnsiTerminal.reset()}" +
-                AnsiTerminal.gotoColumn(TRACK_COLUMN) +
-                "${AnsiTerminal.Color.YELLOW.bold()}$spinner${AnsiTerminal.reset()} " +
-                progressTrack(input, elapsed, AnsiTerminal.Color.YELLOW)
+            AnsiTerminal.gotoColumn(1) +
+                    "${AnsiTerminal.bold()}$label${AnsiTerminal.reset()}" +
+                    AnsiTerminal.gotoColumn(TRACK_COLUMN) +
+                    "${AnsiTerminal.Color.YELLOW.bold()}$spinner${AnsiTerminal.reset()} " +
+                    AnsiTerminal.gotoColumn(1)
         )
-        System.out.flush()
     }
 
     /** A completed interval, locked into scrollback -- unlike the transient
@@ -245,72 +335,16 @@ object CliRunner {
      * `Skipping 1.00-2.00   + (...)` layout), not at the start of the line.
      */
     private fun printIntervalLine(input: UiInputData, state: Iperf3RunningState) {
-        val label = if (state.omitted) "Skipping" else "Running "
         val trackColor = if (state.omitted) AnsiTerminal.Color.RED else AnsiTerminal.Color.GREEN
         val elapsed = (state.intervalNumber + 1).toDouble().coerceAtMost(input.durationSecs.toDouble())
         // intervalNumber is -1 for an omitted interval (it doesn't count toward the
         // real numbered sequence) -- Kotlin's % can return a negative result for a
         // negative operand (unlike mod()), so % here would throw indexing tick[-1].
-        val spinner = tick[state.intervalNumber.mod(tick.size)]
-        writeLine(
-            "  ${AnsiTerminal.bold()}$label${AnsiTerminal.reset()}" +
-                AnsiTerminal.gotoColumn(TRACK_COLUMN) +
-                "${trackColor.fg()}$spinner${AnsiTerminal.reset()} " +
-                "${progressTrack(input, elapsed, trackColor)}  " +
-                // trim() -- formattedOutputLine carries a trailing '\n' from the native
-                // side's own text processing; left in, it ends the line before our
-                // color-reset code runs, surfacing as a stray extra line every time.
-                "${trackColor.fg()}${state.formattedOutputLine.trim()}${AnsiTerminal.reset()}"
-        )
+
+        write(newProgressTrack(input, elapsed, trackColor, state))
     }
 
-    /** Widest the `[##>   ]`/`(   <##)` progress track below is allowed to
-     * get, regardless of test duration. BandWidthTester's own
-     * `printProgress()` -- the design this is adapted from -- draws one
-     * track column per second of the test, which works fine for its typical
-     * ~10s runs but gets absurd for a long one (a one-hour test would need a
-     * 3600-column-wide terminal). Scaling position proportionally within a
-     * capped width avoids that. */
-    private const val PROGRESS_TRACK_WIDTH = 24
 
-    /**
-     * A bracketed track with a solid-color filled run and a rounded leading
-     * cap marking how far through the test's duration [elapsedSeconds] is --
-     * adapted from `MonitorIPerf3Output.printProgress()`'s own technique
-     * (a Nerd Font `arrow` glyph as the leading cap, [AnsiTerminal.Color.fillCell]
-     * solid-background cells trailing behind it) to a fixed, capped width
-     * instead of one column per second of real elapsed time. Direction-aware
-     * like the original: `(   <##)` with the cap pointing left and the fill
-     * growing right-to-left for a reverse-mode (download) test, `[##>   ]`
-     * left-to-right otherwise. When the test is complete, a second cap is
-     * drawn at the trailing end too, closing the bar into a solid rounded
-     * pill -- matching `printProgress()`'s own extra cap it adds once
-     * `resultEntry >= args.times`.
-     */
-    private fun progressTrack(input: UiInputData, elapsedSeconds: Double, color: AnsiTerminal.Color): String {
-        val totalSeconds = input.durationSecs
-        if (totalSeconds <= 0) return ""
-        val width = PROGRESS_TRACK_WIDTH
-        val fraction = (elapsedSeconds / totalSeconds).coerceIn(0.0, 1.0)
-        val filled = (fraction * (width - 1)).toInt().coerceIn(0, width - 1)
-        val pos = if (input.isReverse) width - 1 - filled else filled
-        val complete = fraction >= 1.0
-        val arrow = if (input.isReverse) AnsiTerminal.ARROW_LEFT else AnsiTerminal.ARROW_RIGHT
-
-        val sb = StringBuilder(width + 2)
-        sb.append(if (input.isReverse) '(' else '[')
-        for (i in 0 until width) {
-            val filledCell = (!input.isReverse && i < pos) || (input.isReverse && i > pos)
-            val endCap = complete && ((!input.isReverse && i == width - 1) || (input.isReverse && i == 0))
-            when {
-                i == pos || endCap -> sb.append(color.fg()).append(AnsiTerminal.bold()).append(arrow).append(AnsiTerminal.reset())
-                filledCell -> sb.append(color.fillCell()).append(' ').append(AnsiTerminal.reset())
-                else -> sb.append(' ')
-            }
-        }
-        sb.append(if (input.isReverse) ')' else ']')
-        return sb.toString()
-    }
 
     /** Fixed columns for the stat block below, the same `gotoColumn`-over-
      * space-padding technique [TRACK_COLUMN] uses -- padding with a literal
@@ -326,18 +360,28 @@ object CliRunner {
 
     private fun printStatRow(label: String, labelColor: AnsiTerminal.Color, valueColor: String, data: UnitConvertedData) {
         writeLine(
-            AnsiTerminal.gotoColumn(STAT_LABEL_COLUMN) + AnsiTerminal.box(labelColor, label) +
+            AnsiTerminal.gotoColumn(STAT_LABEL_COLUMN) + "[" + AnsiTerminal.box(labelColor, label) + "]" +
                 AnsiTerminal.gotoColumn(STAT_VALUE_COLUMN) +
                 "$valueColor${formatStat(data)}${AnsiTerminal.reset()}  " +
                 "${AnsiTerminal.bold()}${data.unit}${AnsiTerminal.reset()}"
         )
     }
 
+
+
+    /**
+     * Prints a formatted summary of the iperf3 test execution statistics and results,
+     * followed by the return code of the operation.
+     *
+     * @param state The current running state of the iperf3 test, containing interval statistics
+     * and other execution details. If null, no statistics will be displayed.
+     * @param returnCode The return code representing the outcome of the iperf3 test execution.
+     * A value of 0 typically indicates success, while non-zero values indicate errors.
+     */
     private fun printSummary(state: Iperf3RunningState?, returnCode: Int) {
         writeLine()
         if (state != null && state.intervalNumber >= 0) {
-            writeLine("  ${getSampleSize(state)}")
-            writeLine()
+            //writeLine(getSampleSize(state))
             printStatRow("Avg", AnsiTerminal.Color.GREY, "", state.currentAvg)
             printStatRow("Min", AnsiTerminal.Color.RED, AnsiTerminal.Color.RED.fg(), state.currentMin)
             printStatRow("Max", AnsiTerminal.Color.BLUE, AnsiTerminal.Color.BLUE.fg(), state.currentMax)
@@ -348,5 +392,112 @@ object CliRunner {
         val rcColor = if (returnCode == 0) AnsiTerminal.Color.GREEN else AnsiTerminal.Color.RED
         val avgSuffix = state?.currentAvg?.takeIf { it.value > 0.0 }?.let { " [Avg=${formatStat(it)} ${it.unit}]" } ?: ""
         writeLine("Return Code: ${rcColor.fg()}${"%03d".format(returnCode)}${AnsiTerminal.reset()}$avgSuffix")
+    }
+
+    private const val LEFT_COLUMN_MARKER: Int = 28
+    private var RIGHT_COLUMN_MARKER: Int = 70
+
+    /**
+     * Generates a formatted progress track string to be displayed in the terminal during
+     * an iperf3 network performance test. The progress track includes visual indicators
+     * for the test's current state, elapsed time, and relevant output data.
+     *
+     * @param input The user-provided configuration parameters encapsulated in a [UiInputData] object.
+     * @param elapsedSeconds The elapsed time in seconds since the start of the test.
+     * @param color The [AnsiTerminal.Color] used to style the progress track's visual components.
+     * @param state The current execution state of the iperf3 test, represented as [Iperf3RunningState].
+     * @return A string containing the ANSI-formatted progress track ready for terminal output.
+     */
+    private fun newProgressTrack(input: UiInputData,
+                                 elapsedSeconds: Double,
+                                 color: AnsiTerminal.Color,
+                                 state: Iperf3RunningState) : String
+    {
+        if (input.isDebugging) return ""
+        // intervalNumber is always -1 for an omitted interval, so "<= 0" alone
+        // silently dropped every omitted line too, not just an uninitialized
+        // state -- only bail out when this is neither a real interval nor an
+        // omitted one.
+        if (!state.omitted && state.intervalNumber < 0) return ""
+
+
+        // +1 is a one-column buffer (matching IPerf3Monitor.java's own
+        // `rightColumnMarker = leftColumnMarker + conn.getTimePeriod() + 1`), not
+        // +skip -- adding the omit window here instead inflates the right edge by
+        // the omit window's size (invisible at -O 1, since 1 happens to equal the
+        // intended buffer, but very visible at e.g. -O 5).
+        RIGHT_COLUMN_MARKER = LEFT_COLUMN_MARKER + input.durationSecs + 1
+        val sb = StringBuilder()
+        var leftBracket = "["
+        var rightBracket = "]"
+
+        var column1: Int = LEFT_COLUMN_MARKER + state.intervalNumber.toInt()
+        var arrow = ARROW_RIGHT
+        if (input.isReverse) {
+            leftBracket = "("
+            column1 = RIGHT_COLUMN_MARKER - state.intervalNumber.toInt()
+            arrow = ARROW_LEFT
+
+        } else {
+            rightBracket = ")"
+        }
+        sb.append(AnsiTerminal.reset())
+        sb.append(AnsiTerminal.gotoColumn(1))
+        sb.append(statusLabel(state.omitted, state.stalled))
+        // No +1 here -- the reference draws both brackets directly at the markers,
+        // the same coordinate system column1 (the arrow below) uses. Offsetting
+        // just the brackets by +1 put them one column off from where the arrow's
+        // own math assumes the track edges are.
+        if (!input.isReverse)
+            sb.append(AnsiTerminal.gotoColumn(LEFT_COLUMN_MARKER-1))
+        else
+            sb.append(AnsiTerminal.gotoColumn(LEFT_COLUMN_MARKER+1))
+        sb.append(leftBracket)
+        if (!input.isReverse)
+            sb.append(AnsiTerminal.gotoColumn(RIGHT_COLUMN_MARKER-1))
+        else
+            sb.append(AnsiTerminal.gotoColumn(RIGHT_COLUMN_MARKER+1))
+        sb.append(rightBracket)
+        if (!state.omitted && !state.stalled) {
+            // Fill every cell already passed, not just the one next to the arrow --
+            // explicit each redraw (not relying on earlier draws' cells persisting
+            // on screen untouched), so the bar reads as "[-->   ]" growing to
+            // "[--->  ]" as the test progresses, regardless of terminal quirks.
+            if (input.isReverse) {
+                sb.append(AnsiTerminal.gotoColumn(column1))
+                sb.append(color.fg())
+                sb.append(AnsiTerminal.bold())
+                sb.append(arrow)
+                sb.append(AnsiTerminal.reset())
+                sb.append(color.reverse())
+                sb.append(" ")
+                sb.append(AnsiTerminal.reset())
+            } else {
+                sb.append(AnsiTerminal.gotoColumn(column1-1))
+                sb.append(color.reverse())
+                sb.append(" ")
+                sb.append(AnsiTerminal.reset())
+                sb.append(AnsiTerminal.gotoColumn(column1))
+                sb.append(color.fg())
+                sb.append(AnsiTerminal.bold())
+                sb.append(arrow)
+                sb.append(AnsiTerminal.reset())
+            }
+        }
+        sb.append(AnsiTerminal.gotoColumn(RIGHT_COLUMN_MARKER + 10 + 1))
+        // trim() -- formattedOutputLine carries a trailing '\n' from the native
+        // side's own text processing (see the earlier commit fixing this same
+        // thing in the old printIntervalLine); lost when this function replaced
+        // it, worth keeping here too.
+        sb.append("[" + AnsiTerminal.box(AnsiTerminal.Color.CYAN, state.formattedOutputLine.trim()) + "]")
+        // Park the cursor one column ahead of the arrow in the direction of travel
+        // (not on top of it) between redraws -- MonitorIPerf3Output.printProgress()'s
+        // own "restingColumn" (leftColumnMarker + resultEntry + 1, or
+        // rightColumnMarker - resultEntry - 1 in reverse): a blinking cursor sitting
+        // directly on the arrow glyph can obscure it, and parking one step ahead
+        // reads as "about to advance here next" instead.
+        val restingColumn = if (input.isReverse) column1 - 1 else column1 + 1
+        sb.append(AnsiTerminal.gotoColumn(restingColumn))
+        return sb.toString()
     }
 }

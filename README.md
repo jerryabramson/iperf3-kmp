@@ -125,6 +125,14 @@ output stays readable. See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the f
 [BandWidthTester](https://github.com/jerryabramson/BandWidthTester), an earlier standalone
 iperf3 CLI wrapper this mode is modeled on.
 
+**When checking how the live output actually looks (cursor positioning, in-place redraws, column
+alignment), test via the packaged binary (`bin/iperf3kmp`/`iperf3KMP.exe`, or the built app directly) —
+not `./gradlew :desktopApp:run`, even with `--args`/`--console=plain`.** Gradle wraps the forked JVM's
+stdout, so it isn't a real TTY from the process's own perspective (buffering, `isatty()` detection, and
+terminal-width queries can all behave differently than a genuine terminal), which affects exactly what
+this mode leans on most: absolute cursor positioning and live in-place redraws. `--console=plain` changes
+Gradle's own logging verbosity, not this.
+
 ### Running tests
 Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 
