@@ -25,7 +25,7 @@
 4. Desktop `CLI` (`macOS` / `Linux `/ `Windows`)
     * _Same platforms as `GUI`_<br>
 
-<img alt="iPerf3 Network Tester" src="/Users/jerry/git_storage/iperf3-kmp/iperf3_test_and_history.png" title="iperf3 Network Tester"/>
+<img alt="iPerf3 Network Tester" src="iperf3_test_and_history.png" title="iperf3 Network Tester"/>
 
 
 ---
@@ -252,7 +252,7 @@ per-platform install layout:
 
 >#### Example Execution
 >
->![command line](command-line images.png "command-line execution")
+<img alt="command-line execution" src="./command-line images.png" title="Command-line execution"/>
 1. ANSI output works out of the box on Windows too.
 2. Falls back to plain text (no escape codes) elsewhere when `TERM` looks like a dumb terminal, so redirected-to-a-file and CI/log-capture  output stays readable. 
    * See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag list
