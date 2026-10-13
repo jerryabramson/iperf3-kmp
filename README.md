@@ -87,8 +87,8 @@ git clone https://github.com/esnet/iperf.git
 
 ### Building and running, per platform
 > [!WARNING]
-> Gradle `command-line`
-* Short per-platform build checklists (prerequisites, commands, gotchas) are in [PLATFORM_BUILD_NOTES.md](./PLATFORM_BUILD_NOTES.md).
+> Gradle `command-line` syntax and options
+> * Short per-platform build checklists (prerequisites, commands, gotchas) are in [PLATFORM_BUILD_NOTES.md](./PLATFORM_BUILD_NOTES.md).
 #### Android
 Needs the Android SDK (`sdk.dir` in `local.properties`, or `ANDROID_HOME`). To build only:
 ```shell
@@ -109,36 +109,46 @@ $ANDROID_HOME/platform-tools/adb shell am start \
 
 #### iOS
 
- macOS + Xcode only — build/run is managed by Xcode's own tooling, not
- Gradle (Gradle's Kotlin Multiplatform plugin only builds the shared
- Kotlin framework, not the final signed `.app`). Easiest is opening
- [iosApp/iosApp.xcodeproj](./iosApp/iosApp.xcodeproj) in Xcode and
- running from there — but it can also be built and launched on a
- Simulator entirely from the command line via `xcodebuild`/`xcrun`, no
- Xcode UI required:
+ * macOS + Xcode only — build/run is managed by Xcode's own tooling, not
+ Gradle.
+ * Gradle's Kotlin Multiplatform plugin only builds the shared
+ Kotlin framework, not the final signed `.app`). 
+ * Easiest is opening [iosApp/iosApp.xcodeproj](./iosApp/iosApp.xcodeproj) in Xcode and
+ running from there
+   * Can also be built and launched on a Simulator entirely from the command line.
+   * no Xcode UI required:
 ```shell
-open -a Simulator                                  # opens the Simulator window first, so it's visible throughout
-xcrun simctl boot "iPhone 17"                      # skip if a simulator is already booted
+# opens the Simulator window first, so it's visible throughout
+open -a Simulator
+
+# skip if a simulator is already booted
+xcrun simctl boot "iPhone 17"
+
+# Build and install
 xcodebuild -project iosApp/iosApp.xcodeproj -scheme iosApp -sdk iphonesimulator -configuration Debug \
   -derivedDataPath build/ios build
 xcrun simctl install booted build/ios/Build/Products/Debug-iphonesimulator/iperf3KMP.app
 xcrun simctl launch booted com.jabramson.iperf3-network-tester-kmp
 ```
-(`simctl boot` alone starts the device headlessly with no visible window — `open -a Simulator` first is what actually
-puts it on screen.)
+* `simctl boot` alone starts the device headlessly with no visible window — `open -a Simulator` first is what actually
+puts it on screen.
 
 ---
 
-### Desktop — macOS/Linux
+### Desktop — `macOS` / `Linux`
 Needs `clang` on `PATH` (compiles the native iperf3/printf-formatting JNI bridges at build time; see `CLAUDE.md`'s "Native iperf3 client" section):
 ```shell
-./gradlew :desktopApp:run
-./gradlew :desktopApp:hotRun --auto   # hot reload during development
+ # Normal build/run
+ gradlew :desktopApp:run
+ ```
+```shell
+ # hot reload during development
+ gradlew :desktopApp:hotRun --auto   
 ```
 
 ---
 
-#### Desktop — Windows
+#### Desktop — `Windows`
 __Windows__ is now supported._ - However it has numerous special requirements and limitations
 * Architectural Difference: Does not reuse the in-process JNI path the other desktop
 targets use
@@ -180,24 +190,28 @@ serves both uses; with Gradle, pass args via `--args`:
 * finds the installed launcher at its OS-specific location and run it, so you don't need to know jpackage's
 per-platform install layout:
 ```shell
-./bin/iperf3kmp my-iperf3-server.example.com -t 10 -P 4     # macOS/Linux
-.\bin\iperf3kmp.ps1 my-iperf3-server.example.com -t 10 -P 4 # Windows Powershell
-.\bin\iperf3kmp.bat my-iperf3-server.example.com -t 10 -P 4 # Windows BAT
+# macOS/Linux
+./bin/iperf3kmp my-iperf3-server.example.com -t 10 -P 4
+
+# Windows Powershell
+.\bin\iperf3kmp.ps1 my-iperf3-server.example.com -t 10 -P 4
+ 
+# Windows BAT
+.\bin\iperf3kmp.bat my-iperf3-server.example.com -t 10 -P 4 
 ```
-* ANSI output works out of the box on Windows too — unlike `TERM`-only detection, this checks the OS directly,
-* since Windows consoles support ANSI natively but don't set a `TERM` env var at all. 
+* ANSI output works out of the box on Windows too.
 * Falls back to plain text (no escape codes) elsewhere when `TERM` looks like a dumb terminal, so redirected-to-a-file and CI/log-capture  output stays readable. 
   * See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag list
 
 * When checking how the live output actually looks (cursor positioning, in-place redraws, column
 alignment), test via:
-  * the packaged binary (`bin/iperf3kmp`/`iperf3KMP.exe`, or the built app directly) 
-  * not `./gradlew :desktopApp:run`
-    * even with `--args`/`--console=plain`.
+  * The packaged binary (`bin/iperf3kmp`/`iperf3KMP.exe` or the built app directly) 
+  * Do not use `./gradlew :desktopApp:run`; 
+  * even with  `--args`/ `--console=plain` 
       * **Gradle** wraps the forked JVM's stdout, so it isn't a real TTY from the process's own perspective
-      * _Buffering_, `isatty()` detection, and _terminal-width queries_ can all behave differently than a genuine terminal), 
- which affects exactly what this mode requires: 
-        * Absolute cursor positioning and live in-place redraws. 
+      * _Buffering_, `isatty()` detection, and _terminal-width queries_ can all behave differently than a genuine terminal).<br> 
+      * This affects exactly what this mode requires: 
+          * Absolute cursor positioning and live in-place redraws. 
 
 ---
 
