@@ -51,21 +51,21 @@
 ### `Platform Installers`
 # Initial Installers
 
-| Installer                                                                                                      | Operating System       | architecture |
-|----------------------------------------------------------------------------------------------------------------|------------------------|--------------|
-| [androidApp-debug.apk](/jerryabramson/iperf3-kmp/releases/download/0.1/androidApp-debug.apk)                   | Android                | `arm`        |
-| [iperf3KMP.ipa](/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP.ipa)                                 | iOS (debug image)      | `aarch64`    |
-| [iperf3KMP-1.0.0.dmg](/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP-1.0.0.dmg)                     | macOS                  | `aarch64`    |
-| [iperf3kmp_1.0.0_arm64.deb](/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp_1.0.0_arm64.deb)         | Debian/Ubuntu          | `arm64`      |
-| [iperf3kmp-1.0.0-1.aarch64.rpm](/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp-1.0.0-1.aarch64.rpm) | Fedora/RHEL            | `aarch64`    |
-| iperf3KMP-1.0.0_arm64.msi                                                                                      | **TBD** Windows on ARM | `arm64`      |
+| Installer                                                                                                                        | Operating System       | architecture |
+|----------------------------------------------------------------------------------------------------------------------------------|------------------------|--------------|
+| [androidApp-debug.apk](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/androidApp-debug.apk)                   | Android                | `arm`        |
+| [iperf3KMP.ipa](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP.ipa)                                 | iOS (debug image)      | `aarch64`    |
+| [iperf3KMP-1.0.0.dmg](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP-1.0.0.dmg)                     | macOS                  | `aarch64`    |
+| [iperf3kmp_1.0.0_arm64.deb](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp_1.0.0_arm64.deb)         | Debian/Ubuntu          | `arm64`      |
+| [iperf3kmp-1.0.0-1.aarch64.rpm](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp-1.0.0-1.aarch64.rpm) | Fedora/RHEL            | `aarch64`    |
+| iperf3KMP-1.0.0_arm64.msi                                                                                                        | **TBD** Windows on ARM | `arm64`      |
 
 
-| Installer                                                                                                     | Operating System | architecture |
-|---------------------------------------------------------------------------------------------------------------|------------------|--------------|
-| [iperf3KMP-1.0.0.msi](/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP-1.0.0.msi)                    | Windows          | `x86_64`     |
-| [iperf3kmp_1.0.0_amd64.deb](/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp_1.0.0_amd64.deb)        | Debian/Ubuntu    | `x86_64`     |
-| [iperf3kmp-1.0.0-1.x86_64.rpm](/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp-1.0.0-1.x86_64.rpm)  | Fedora/RHEL      | `x86_64`     |
+| Installer                                                                                                                      | Operating System | architecture |
+|--------------------------------------------------------------------------------------------------------------------------------|------------------|--------------|
+| [iperf3KMP-1.0.0.msi](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP-1.0.0.msi)                   | Windows          | `x86_64`     |
+| [iperf3kmp_1.0.0_amd64.deb](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp_1.0.0_amd64.deb)       | Debian/Ubuntu    | `x86_64`     |
+| [iperf3kmp-1.0.0-1.x86_64.rpm](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp-1.0.0-1.x86_64.rpm) | Fedora/RHEL      | `x86_64`     |
 
 
 
