@@ -1,32 +1,69 @@
-# This is a Kotlin Multiplatform project
+# Network Testing (iperf3) GUI and CLI
+> [!IMPORTANT]
+> * Supports all known hardware devices and systems, on all supported hardware architectures.
+> * A single code-base with approximately <mark>80%</mark> code sharing! 
+1. Android<br>
+    * `arm64` <ins>physical</ins> and <ins>simulator</ins><br>
+    * `x86_64` <ins>simulator only</ins><br>
+2. iOS<br>
+   * `arm64` <ins>physical</ins> and <ins>simulator</ins><br>
+   * `x86_64` <ins>simulator <ins>is not supported</ins><br>
+4. Desktop `GUI` (JVM — `macOS` / `Linux `/ `Windows`)<br>
+	* macOS – `aarch64` (`M series only`; **no** `x86_64`)<br>
+	* Linux – `x86_64`<br>
+      * _rpm_ - <ins>Fedora/RHEL</ins><br>
+      * _deb_ - <ins>Debian/Ubuntu</ins><br>
+    * Linux – `arm64`<br>
+        * _rpm_ - <ins>Fedora/RHEL</ins><br>
+        * _deb_ - <ins>Debian/Ubuntu</ins><br>
+    * Windows<br>
+        * `x86_64`<br>
+        * `arm64` (partially _x86_64_ via Prism translation)<br>
+4. Desktop `CLI` (`macOS` / `Linux `/ `Windows`)
+    * _Same platforms as `GUI`_<br>
 
-* The project targets Android, iOS, and Desktop (JVM — macOS/Linux/Windows)
+---
 
-**Quick recipe — clone to running app on a fresh Linux machine:**
+> [!TIP]
+> Install using a single command<br>
+> * `Linux` / `macOS`
+> ```shell
+> curl -s https://github.com/jerryabramson/iperf3-kmp/install.sh | bash -s
+> ```
+> * `Windows`
+> ```shell
+>  Invoke-WebRequest -URI "https://github.com/jerryabramson/iperf3-kmp/install.ps1" -OutFile install.ps1
+> .\install.ps1 
+> ```
+---
+
+> [!TIP]
+> _Quick recipe for source code build_
+*  Clone and build to a running app on the current *platform/architecture*:
 ```shell
-git clone https://github.com/<your-username>/iperf3-kmp
+git clone https://github.com/jerryabramson/iperf3-kmp --recursive
 cd iperf3-kmp/
 ```
-* (or clone with `git clone --recursive` to get it in one step).
-
-**The full `esnet/iperf` source tree isn't included in this repo — it's a git submodule pinned to the `3.21` tag, required for every target (Android, iOS, and desktop all link against it).**
-* After cloning:
+  * **The full `esnet/iperf` source tree isn't included in this repo — it's a git submodule pinned to the `3.21` tag, required for every target (Android, iOS, and desktop all link against it).**
+  * After cloning, if the `thirdparty/iperf` subdirectory is empty:
 ```shell
 git submodule update --init --recursive
 ```
-**Alternatively, if the application is downloaded directly from github as a release, the following commands are required:**
+  * **Alternatively, if the source code is downloaded directly from the github release asset (gz or zip), the following commands are required:**
 ```shell
 cd third_party
 rmdir iperf
 git clone https://github.com/esnet/iperf.git
 ```
 
-**Run desktop app (Linux, macOS, or Windows — on Windows use `gradlew.bat`, see the Windows section below)**
+---
+
+* **Run desktop app (Linux, macOS, or Windows — on Windows use `gradlew.bat`, see the Windows section below)**
 ```shell
 ./gradlew :desktopApp:run
 ```
 
-## Code Layout
+# Code Layout
 * [/iosApp](./iosApp/iosApp) contains an iOS application.
   - Even if you’re sharing your UI with Compose Multiplatform, you need this entry point for your iOS app.
   - This is also where you should add SwiftUI code for your project.
@@ -42,10 +79,17 @@ git clone https://github.com/esnet/iperf.git
               - *For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app, this folder would be the right place for such calls.*
 
 ## Building and running, per platform
-Short per-platform build checklists (prerequisites, commands, gotchas) are in [PLATFORM_BUILD_NOTES.md](./PLATFORM_BUILD_NOTES.md).
-### Preferable 
-* Use the run configurations provided by the run widget in your IDE's toolbar, or these Gradle commands directly.
-### Android
+
+> [!TIP]
+> Use the run configurations provided by the run widget in your IDE's toolbar
+
+---
+
+### Building and running, per platform
+> [!WARNING]
+> Gradle `command-line`
+* Short per-platform build checklists (prerequisites, commands, gotchas) are in [PLATFORM_BUILD_NOTES.md](./PLATFORM_BUILD_NOTES.md).
+#### Android
 Needs the Android SDK (`sdk.dir` in `local.properties`, or `ANDROID_HOME`). To build only:
 ```shell
 ./gradlew :androidApp:assembleDebug
@@ -61,8 +105,17 @@ $ANDROID_HOME/platform-tools/adb shell am start \
   -n com.jabramson.iperf3_network_tester_kmp/.MainActivity
 ```
 
-### iOS
-macOS + Xcode only — build/run is managed by Xcode's own tooling, not Gradle (Gradle's Kotlin Multiplatform plugin only builds the shared Kotlin framework, not the final signed `.app`). Easiest is opening [/iosApp/iosApp.xcodeproj](./iosApp/iosApp.xcodeproj) in Xcode and running from there — but it can also be built and launched on a Simulator entirely from the command line via `xcodebuild`/`xcrun`, no Xcode UI required:
+---
+
+#### iOS
+
+ macOS + Xcode only — build/run is managed by Xcode's own tooling, not
+ Gradle (Gradle's Kotlin Multiplatform plugin only builds the shared
+ Kotlin framework, not the final signed `.app`). Easiest is opening
+ [iosApp/iosApp.xcodeproj](./iosApp/iosApp.xcodeproj) in Xcode and
+ running from there — but it can also be built and launched on a
+ Simulator entirely from the command line via `xcodebuild`/`xcrun`, no
+ Xcode UI required:
 ```shell
 open -a Simulator                                  # opens the Simulator window first, so it's visible throughout
 xcrun simctl boot "iPhone 17"                      # skip if a simulator is already booted
@@ -73,26 +126,36 @@ xcrun simctl launch booted com.jabramson.iperf3-network-tester-kmp
 ```
 (`simctl boot` alone starts the device headlessly with no visible window — `open -a Simulator` first is what actually
 puts it on screen.)
+
+---
+
 ### Desktop — macOS/Linux
 Needs `clang` on `PATH` (compiles the native iperf3/printf-formatting JNI bridges at build time; see `CLAUDE.md`'s "Native iperf3 client" section):
 ```shell
 ./gradlew :desktopApp:run
 ./gradlew :desktopApp:hotRun --auto   # hot reload during development
 ```
-### Desktop — Windows
-_Windows is now supported._ It doesn't reuse the in-process JNI path the other desktop
-targets use — instead, a bundled, Gradle-built-from-source `iperf3.exe` runs as a real
-subprocess (`ProcessBuilder`). Requires:
-* [Cygwin](https://cygwin.com/) installed at `C:\cygwin64` with the `gcc-core` and `make`
-  packages — builds `iperf3.exe` itself (Cygwin's own `gcc`, not `clang`; Cygwin's bundled
+
+---
+
+#### Desktop — Windows
+__Windows__ is now supported._ - However it has numerous special requirements and limitations
+* Architectural Difference: Does not reuse the in-process JNI path the other desktop
+targets use
+  * instead, a bundled, Gradle-built-from-source `iperf3.exe` runs as a real
+subprocess (`ProcessBuilder`).
+* Special Requirements:
+  * [Cygwin](https://cygwin.com/) installed at `C:\cygwin64` with the `gcc-core` and `make`
+  packages 
+    * builds `iperf3.exe` itself (Cygwin's own `gcc`, not `clang`; Cygwin's bundled
   clang can't build against Cygwin's own newer headers).
-* A native Windows LLVM `clang` (e.g. `winget install LLVM.LLVM`) — builds the JNI
-  printf-formatting helper, same as macOS/Linux above. On Windows, `clang` takes its C headers
-  and libraries from Visual Studio, so also install the
-  [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) with the
-  "Desktop development with C++" workload (add the ARM64 build tools on a Windows-on-Arm
-  machine). Without it the build fails with `'stdio.h' file not found`.
-* The [WiX Toolset](https://wixtoolset.org/) — required by `jpackage` to emit the `.msi`.
+  * A native Windows _LLVM_ `clang` (e.g. `winget install LLVM.LLVM`) 
+    * builds the JNI printf-formatting helper, same as macOS/Linux above.
+      * On Windows, `clang` takes its C headers and libraries from Visual Studio, so also install the   [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/) with the
+"Desktop development with C++" workload (add the ARM64 build tools on a Windows-on-Arm
+  machine). 
+      * Without it the build fails with `'stdio.h' file not found`.
+  * The [WiX Toolset](https://wixtoolset.org/) — required by `jpackage` to emit the `.msi`.
 ```shell
 gradlew.bat :desktopApp:run
 gradlew.bat :desktopApp:packageMsi
@@ -102,44 +165,41 @@ the full story of why this was originally rejected and what changed. An MSI buil
 Parallels VM); the x64 MSI also runs there under Prism. Only `iperf3.exe` is x86_64 in both
 (Cygwin has no ARM64 port); a native ARM64 `iperf3.exe` is planned but not started — see [WINDOWS_ARM64_IPERF3_PLAN.md](docs/desktop/WINDOWS_ARM64_IPERF3_PLAN.md).
 
-### Desktop — command-line mode (no GUI)
-Pass any arguments and the desktop app runs a real iperf3 test from the terminal instead of opening
+---
+
+#### Desktop — command-line mode (without a GUI)
+* Pass any arguments and the desktop app runs a real iperf3 test from the terminal instead of opening
 the GUI — the exact same engine (real libiperf, live output parsing, stall detection), just rendered
-with ANSI escape codes instead of Compose widgets. The packaged launcher (`iperf3KMP`/`iperf3KMP.exe`)
+with ANSI escape codes instead of Compose widgets. 
+* The packaged launcher (`iperf3KMP`/`iperf3KMP.bat` / `iperf3KMP.ps1`)
 serves both uses; with Gradle, pass args via `--args`:
-```shell
-./gradlew :desktopApp:run --args="--help"
-./gradlew :desktopApp:run --args="my-iperf3-server.example.com -t 10 -P 4"
-```
-Once the app is installed from a package (`.deb`/`.rpm`/`.dmg`/`.msi`), [`bin/iperf3kmp`](bin/iperf3kmp)
-(macOS/Linux) and [`bin/iperf3kmp.ps1`](bin/iperf3kmp.ps1)/[`bin/iperf3kmp.bat`](bin/iperf3kmp.bat) (Windows)
-find the installed launcher at its OS-specific location and run it, so you don't need to know jpackage's
+
+* Once the app is installed from a package (`.deb`/`.rpm`/`.dmg`/`.msi`):
+  * [`bin/iperf3kmp`](bin/iperf3kmp) (macOS/Linux) 
+  * [`bin/iperf3kmp.ps1`](bin/iperf3kmp.ps1)/[`bin/iperf3kmp.bat`](bin/iperf3kmp.bat) (Windows)
+* finds the installed launcher at its OS-specific location and run it, so you don't need to know jpackage's
 per-platform install layout:
 ```shell
-bin/iperf3kmp my-iperf3-server.example.com -t 10 -P 4
+./bin/iperf3kmp my-iperf3-server.example.com -t 10 -P 4     # macOS/Linux
+.\bin\iperf3kmp.ps1 my-iperf3-server.example.com -t 10 -P 4 # Windows Powershell
+.\bin\iperf3kmp.bat my-iperf3-server.example.com -t 10 -P 4 # Windows BAT
 ```
-ANSI output works out of the box on Windows too — unlike `TERM`-only detection, this checks the OS directly,
-since Windows consoles support ANSI natively but don't set a `TERM` env var at all. Falls back to plain text
-(no escape codes) elsewhere when `TERM` looks like a dumb terminal, so redirected-to-a-file and CI/log-capture
-output stays readable. See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag list — it mirrors
-[BandWidthTester](https://github.com/jerryabramson/BandWidthTester), an earlier standalone
-iperf3 CLI wrapper this mode is modeled on.
+* ANSI output works out of the box on Windows too — unlike `TERM`-only detection, this checks the OS directly,
+* since Windows consoles support ANSI natively but don't set a `TERM` env var at all. 
+* Falls back to plain text (no escape codes) elsewhere when `TERM` looks like a dumb terminal, so redirected-to-a-file and CI/log-capture  output stays readable. 
+  * See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag list
 
-**When checking how the live output actually looks (cursor positioning, in-place redraws, column
-alignment), test via the packaged binary (`bin/iperf3kmp`/`iperf3KMP.exe`, or the built app directly) —
-not `./gradlew :desktopApp:run`, even with `--args`/`--console=plain`.** Gradle wraps the forked JVM's
-stdout, so it isn't a real TTY from the process's own perspective (buffering, `isatty()` detection, and
-terminal-width queries can all behave differently than a genuine terminal), which affects exactly what
-this mode leans on most: absolute cursor positioning and live in-place redraws. `--console=plain` changes
-Gradle's own logging verbosity, not this.
+* When checking how the live output actually looks (cursor positioning, in-place redraws, column
+alignment), test via:
+  * the packaged binary (`bin/iperf3kmp`/`iperf3KMP.exe`, or the built app directly) 
+  * not `./gradlew :desktopApp:run`
+    * even with `--args`/`--console=plain`.
+      * **Gradle** wraps the forked JVM's stdout, so it isn't a real TTY from the process's own perspective
+      * _Buffering_, `isatty()` detection, and _terminal-width queries_ can all behave differently than a genuine terminal), 
+ which affects exactly what this mode requires: 
+        * Absolute cursor positioning and live in-place redraws. 
 
-### Running tests
-Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
-
-- Android tests: `./gradlew :shared:testAndroidHostTest`
-- Desktop tests (macOS/Linux): `./gradlew :shared:jvmTest`
-- iOS simulator tests: `./gradlew :shared:iosSimulatorArm64Test`
-
+---
 
 # Desktop packaging
 | Platform | task |
@@ -152,30 +212,19 @@ Use the run button in your IDE's editor gutter, or run tests using Gradle tasks:
 | Fedora/RHEL x86_64 or aarch64 - on a non-RPM host (Debian/Ubuntu, or macOS with Docker Desktop) | packageRpmFromContainer.sh |
 | Windows x86_64 | gradlew.bat :desktopApp:packageMsi |
 | Windows ARM64 (native ARM64 JVM; bundled `iperf3.exe` is x86_64 under Prism emulation — see WINDOWS_ARM64_IPERF3_PLAN.md) | gradlew.bat :desktopApp:packageMsi |
-* See Gotcha's in CLAUDE.md
+
 
 Both container-based scripts auto-detect Podman or Docker (whichever is on `PATH`) and build a native, non-emulated Linux container matching the host's CPU - including on Apple Silicon or Intel Macs via Docker Desktop, since it runs a real Linux VM matching the host architecture. Verified via Podman on Fedora x86_64 and Fedora aarch64, and via Docker Desktop on macOS (Apple Silicon) producing both `iperf3kmp_1.0.0_arm64.deb` and `iperf3kmp-1.0.0-1.aarch64.rpm`.
 
-**Gotcha when switching between a native host build and a container build on the same checkout:** both scripts now clear `third_party/iperf/src/iperf_config.h`/`version.h` before running, since those are gitignored `./configure` output that's OS/arch-specific and would otherwise leak in via the bind-mounted repo dir from a prior native build (e.g. a macOS-generated config defines `HAVE_SYS_ENDIAN_H`, which doesn't exist on Linux, breaking the container build with `'sys/endian.h' file not found`). See the "No cross-compiling" note above for the same underlying issue on native builds.
-#  Access
-This repository is **public**. Clone it with either protocol; you only need your own credentials (never share a token or SSH key):
-
-* **SSH (recommended for interactive/day-to-day use):** add your own SSH public key under [github.com/settings/keys](https://github.com/settings/keys), then (replace `<your-username>` with the account that hosts this repo):
-  ```shell
-  git clone git@github.com:<your-username>/iperf3-kmp.git
-  ```
-* **HTTPS (no token needed for public reads):** clone anonymously, or use a [credential helper](https://git-scm.com/docs/gitcredentials) when you push. For CI on a private fork, generate your own fine-grained token ([github.com/settings/personal-access-tokens](https://github.com/settings/personal-access-tokens)) scoped to that fork with `Contents: Read-only`:
-  ```shell
-  git clone https://<your-own-token>@github.com/<your-username>/iperf3-kmp.git
-  ```
-* **No command line:** browse/download from github.com in a browser, or use `gh auth login` (GitHub CLI) for a browser-based login.
-
-**Contributing:** fork the repo, branch off `main`, and open a pull request. Prefix local branch names with your own prefix so they stay distinguishable.
-
-A token or SSH key only ever authenticates the person who generated it — don't email or share a personal access token; each contributor should generate and hold their own.
-
-> Note: the `third_party/iperf` submodule points at the public [`esnet/iperf`](https://github.com/esnet/iperf) project and needs no authentication. Run `git submodule update --init --recursive` after cloning — every target links against it.
+>[!CAUTION]
+>See Gotcha's in `CLAUDE.md`
 
 
----
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+--- 
+
+
+>[!TIP]
+> * Note: the `third_party/iperf` submodule points at the public [`esnet/iperf`](https://github.com/esnet/iperf) project<br> 
+> * Needs no authentication. after cloning:
+>   * Run `git submodule update --init --recursive` 
+
