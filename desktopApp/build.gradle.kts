@@ -38,6 +38,15 @@ val stageWindowsIperf3 = tasks.register<Sync>("stageWindowsIperf3") {
     into(layout.buildDirectory.dir("appResources/$windowsResourceSubdir"))
 }
 
+// Both opt-in via Gradle properties, not hardcoded -- a contributor/CI building
+// this public repo without a real Apple Developer ID cert must still get a
+// working (unsigned) packageDmg, not a failure. Set these in your own
+// ~/.gradle/gradle.properties (never this repo's own, which is committed):
+//   desktopApp.macSigningIdentity=Developer ID Application: Your Name (TEAMID)
+//   desktopApp.macNotarizationProfile=<the name you gave `notarytool store-credentials`>
+val macSigningIdentity = providers.gradleProperty("desktopApp.macSigningIdentity").orNull
+val macNotarizationProfile = providers.gradleProperty("desktopApp.macNotarizationProfile").orNull
+
 compose.desktop {
     application {
         mainClass = "com.jabramson.iperf3_network_tester_kmp.MainKt"
@@ -50,6 +59,17 @@ compose.desktop {
 
             macOS {
                 iconFile.set(project.file("src/main/resources/app-icon.icns"))
+                if (macSigningIdentity != null) {
+                    // Same bundle ID already used for iOS (Config.xcconfig's
+                    // PRODUCT_BUNDLE_IDENTIFIER) -- required once signing is on,
+                    // and must use hyphens, not the Android package's underscores
+                    // (jpackage/codesign reject underscores in a bundle ID).
+                    bundleID = "com.jabramson.iperf3-network-tester-kmp"
+                    signing {
+                        sign.set(true)
+                        identity.set(macSigningIdentity)
+                    }
+                }
             }
             windows {
                 iconFile.set(project.file("src/main/resources/app-icon.ico"))
@@ -146,6 +166,68 @@ val patchDebDesktopMenuScripts = tasks.register("patchDebDesktopMenuScripts") {
 // tasks.named() would throw "Task with name 'packageDeb' not found".
 afterEvaluate {
     tasks.named("packageDeb") { finalizedBy(patchDebDesktopMenuScripts) }
+}
+
+// Notarization and signing are two separate Apple services: jpackage/Compose's
+// own `signing` block (wired above) handles signing at package time, but
+// *notarizing* needs the already-built .dmg uploaded to Apple afterward, which
+// Compose's built-in `notarization` DSL block doesn't reliably support for a
+// `notarytool store-credentials` keychain profile (it predates `notarytool` --
+// see commit message/PR discussion for why this isn't using that block). So
+// notarization is its own explicit post-packageDmg step, shelling out to the
+// same `notarytool submit`/`stapler staple` commands documented for manual use.
+val notarizeAndStapleDmg = tasks.register("notarizeAndStapleDmg") {
+    dependsOn("packageDmg")
+    outputs.upToDateWhen { false }
+
+    // Captured into a local val before onlyIf/doLast reference it, not read
+    // directly from the outer script-level val inside either lambda -- Kotlin
+    // resolves a script-level val from inside a nested lambda via a synthetic
+    // reference to the whole enclosing script instance, which is exactly the
+    // "cannot serialize Gradle script object references" the configuration
+    // cache rejects; a true local variable capture serializes as a plain value.
+    val profile = macNotarizationProfile
+    val dmgDirProvider = layout.buildDirectory.dir("compose/binaries/main/dmg")
+
+    onlyIf { profile != null }
+
+    doLast {
+        fun run(vararg cmd: String): String {
+            val process = ProcessBuilder(*cmd).redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().readText()
+            val exitCode = process.waitFor()
+            check(exitCode == 0) { "Command failed (${cmd.joinToString(" ")}):\n$output" }
+            return output
+        }
+
+        val dmgDir = dmgDirProvider.get().asFile
+        val dmgFile = dmgDir.listFiles { f -> f.extension == "dmg" }?.firstOrNull()
+            ?: error("No .dmg found in $dmgDir to notarize")
+
+        val submitOutput = run(
+            "xcrun", "notarytool", "submit", dmgFile.absolutePath,
+            "--keychain-profile", profile!!,
+            "--wait"
+        )
+        println(submitOutput)
+        // notarytool submit --wait can exit 0 even when Apple rejects the
+        // submission (status: Invalid) -- check the reported status
+        // explicitly rather than trusting the exit code alone. On a genuine
+        // rejection, `xcrun notarytool log <submission-id> --keychain-profile
+        // "$profile"` (id is in submitOutput above) gives the actual reason.
+        check(submitOutput.contains("status: Accepted")) {
+            "Notarization did not report Accepted -- see output above, " +
+                "or run `xcrun notarytool log <submission-id> --keychain-profile \"$profile\"` " +
+                "for the full reason."
+        }
+
+        run("xcrun", "stapler", "staple", dmgFile.absolutePath)
+    }
+}
+// Same afterEvaluate reasoning as packageDeb above -- packageDmg doesn't exist
+// yet at top-level script evaluation time either.
+afterEvaluate {
+    tasks.named("packageDmg") { finalizedBy(notarizeAndStapleDmg) }
 }
 
 // Both the packaging tasks and `run` read appResourcesRootDir, so stage first.
