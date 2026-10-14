@@ -1,6 +1,6 @@
 # The Limits of AI-Assisted Development: Why Manual Testing Remains Necessary, Even With Frontier Models
 
-**Author:** Jerry Abramson (with Claude Code)
+**Author:** Jerold Abramson (with Claude Code)
 **Date:** 2026-07-20
 **Context:** Independent research on local LLM tooling for agentic workflows, `iperf3KMP` project. Companion document to `LMSTUDIO_MCP_CASE_STUDY.md` and `PRINTF_FORMATTING_CASE_STUDY.md` — both are cited here as evidence, not re-derived. Where those two documents each argue a point about *one* comparison (local-model reasoning capability in the first; a specific interop-boundary defect class in the second), this document names a claim that cuts across both and does not go away as model quality improves: **there is a category of correctness that no AI assistant — local or frontier, weak or strong — can verify on its own, because verifying it requires a human to look at a running system and perceive it.**
 

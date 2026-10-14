@@ -1,6 +1,6 @@
 # Implementing printf()-Style Formatting Across Kotlin Multiplatform: A Case Study in Underestimated Complexity
 
-**Author:** Jerry Abramson (with Claude Code)
+**Author:** Jerold Abramson (with Claude Code)
 **Date:** 2026-07-18
 **Context:** Independent research on local LLM tooling for agentic workflows, `iperf3KMP` project. Companion document to `LMSTUDIO_MCP_CASE_STUDY.md` — that document covers an infrastructure-debugging task class; this one covers a task that looked like routine cross-platform coding and was not.
 

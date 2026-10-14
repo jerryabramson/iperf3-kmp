@@ -2,7 +2,7 @@
 
 **Measured Cross-Platform Code Sharing Against the 80% Project Goal**
 
-Jerry Abramson • Independent Research Study • Prepared 2026-08-03 • Updated 2026-09-12 • Updated 2026-10-13
+Jerold Abramson • Independent Research Study • Prepared 2026-08-03 • Updated 2026-09-12 • Updated 2026-10-13
 
 > **Result: 70.4% – 73.5% shared**, depending on methodology — down from 76.6% – 81.7% in September and 82.0% – 87.7% in August. **All three methodologies are now below the 80% goal**, for the first time since this analysis began. See "What Changed Since September" below — the cause this time is concentrated almost entirely in one place, not spread across the codebase.
 
