@@ -9,6 +9,8 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 - **GUI and CLI** — the desktop build ships both a Compose GUI and a standalone CLI tool.
 - **Native installers** — `.dmg`, `.msi`, `.deb`, and `.rpm` packages for each desktop OS.
 
+<img alt="iPerf3 Network Tester" src="iperf3_test_and_history.png" title="iperf3 Network Tester"/>
+
 ## Platforms Supported
 1. Android<br>
     * `arm64` <ins>physical</ins> and <ins>simulator</ins><br>
@@ -29,9 +31,6 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
         * `arm64` (partially _x86_64_ via Prism translation)<br>
 4. Desktop `CLI` (`macOS` / `Linux `/ `Windows`)
     * _Same platforms as `GUI`_<br>
-
-<img alt="iPerf3 Network Tester" src="iperf3_test_and_history.png" title="iperf3 Network Tester"/>
-
 
 ---
 
