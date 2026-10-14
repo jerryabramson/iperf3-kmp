@@ -41,12 +41,11 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 > ### Install using a single command<br>
 >> #### `Linux` / `macOS`
 >> ```shell
->> curl -s https://github.com/jerryabramson/iperf3-kmp/install.sh | bash -s
+>> curl -fsSL https://raw.githubusercontent.com/jerryabramson/iperf3-kmp/master/install.sh | bash
 >> ```
-> #### `Windows`
->> ```shell
->>  Invoke-WebRequest -URI "https://github.com/jerryabramson/iperf3-kmp/install.ps1" -OutFile install.ps1
->> .\install.ps1 
+> #### `Windows` (PowerShell)
+>> ```powershell
+>> irm https://raw.githubusercontent.com/jerryabramson/iperf3-kmp/master/install.ps1 | iex
 >> ```
 >> 
 
