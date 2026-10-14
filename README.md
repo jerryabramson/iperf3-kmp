@@ -91,11 +91,12 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 >>git clone https://github.com/jerryabramson/iperf3-kmp --recursive
 >>cd iperf3-kmp/
 >>```
->2. **The full `esnet/iperf` source tree isn't included in this repo** 
+>2. **The full `esnet/iperf` source tree isn't included in this repo**
 >>  * it's a git submodule pinned to the `3.21` tag, which is required for every target:
->>    * `Android` `iOS` and `Desktop` all link against it<br>
->><br>    
->>  * After cloning, if the `thirdparty/iperf` subdirectory is empty:
+>>    * `Android` `iOS` and `Desktop` all link against it
+>>
+>>  * After cloning, if the `third_party/iperf` subdirectory is empty, run:
+>>
 >>```shell
 >>git submodule update --init --recursive
 >>```
