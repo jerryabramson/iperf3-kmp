@@ -117,6 +117,11 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 * [/iosApp](./iosApp/iosApp) contains an iOS application.
   * Even if you’re sharing your UI with Compose Multiplatform, you need this entry point for your iOS app.
   * This is also where you should add SwiftUI code for your project.
+* [/androidApp](./androidApp) is the Android application shell.
+  * [MainActivity.kt](./androidApp/src/main/kotlin/com/jabramson/iperf3_network_tester_kmp/MainActivity.kt) is the entry point — a thin host for the shared Compose UI.
+* [/desktopApp](./desktopApp) is the JVM desktop application shell (macOS / Linux / Windows).
+  * [main.kt](./desktopApp/src/main/kotlin/com/jabramson/iperf3_network_tester_kmp/main.kt) is the entry point — it opens the Compose GUI by default, or dispatches to the [cli](./desktopApp/src/main/kotlin/com/jabramson/iperf3_network_tester_kmp/cli) package's `CliRunner` instead if command-line arguments are passed.
+  * Desktop packaging (`.dmg` / `.msi` / `.deb` / `.rpm`) is configured in [build.gradle.kts](./desktopApp/build.gradle.kts).
 * [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
   * [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
   * Platform-specific subfolders — compiled only for the platform named in the folder:
