@@ -10,7 +10,7 @@ package com.jabramson.iperf3_network_tester_kmp.cli
 /**
  * Minimal ANSI terminal helper for [CliRunner]'s live command-line output.
  *
- * Same technique (and the same "is this terminal ANSI-capable" heuristic) as the
+ * The same technique (and the same "is this terminal ANSI-capable" heuristic) as the
  * hand-rolled `AnsiCodes`/`TerminalType` classes in
  * https://github.com/jerryabramson/BandWidthTester, a earlier standalone iperf3
  * CLI wrapper this project's CLI mode is modeled on: a handful of raw escape
@@ -42,6 +42,14 @@ object AnsiTerminal {
             !(term.isNullOrEmpty() || term.equals("dumb", ignoreCase = true))
         }
     }
+
+    fun setColumnWidth() {
+        val columnString = System.getenv("COLUMNS")
+        width = columnString?.toInt() ?: 80
+
+    }
+
+    private var width = 80
 
     private const val ESC = "\u001B"
 
@@ -120,5 +128,9 @@ object AnsiTerminal {
     fun horizontalRule(width: Int): String {
         val ch = if (isAnsi) "─" else "-"
         return ch.repeat(width)
+    }
+
+    fun horizontalRule(): String {
+        return horizontalRule(width)
     }
 }

@@ -68,6 +68,7 @@ object CliRunner {
     /** @return the process exit code: iperf3's own return code on a real run,
      * 0 after printing `--help`, 1 on a command-line usage error. */
     fun run(args: Array<String>): Int {
+        AnsiTerminal.setColumnWidth()
         val resultStatistics = ResultStatistics()
 
             val options = CliArgs.parse(args)
@@ -111,6 +112,8 @@ object CliRunner {
     private fun runLoop(options: CliOptions): Int {
         val pool = options.portPool
         var failures = 0
+
+        writeLine(AnsiTerminal.horizontalRule())
         val resultStatistics: MutableList<ResultStatistics> = emptyList<ResultStatistics>().toMutableList()
         for (i in 0 until options.loopCount) {
             val port = pool?.let { it.first + (i % (it.last - it.first + 1)) } ?: options.input.portNumber
@@ -236,8 +239,9 @@ object CliRunner {
                             ) {
                                 if (message.contains("Bridge")) {
                                     if (firstBridge) {
-                                        writeLine()
+                                        write(AnsiTerminal.clearLine() + AnsiTerminal.gotoColumn(1))
                                         writeLine(formatMessage(message))
+                                        System.out.flush()
                                         firstBridge = false
                                     } else {
                                             deferredMessages.add(formatMessage(message))
@@ -286,18 +290,18 @@ object CliRunner {
             write("${AnsiTerminal.gotoColumn(TRACK_COLUMN)} ${AnsiTerminal.gotoColumn(1)}")
             writeLine()
             if (deferredMessages.isNotEmpty()) {
-                writeLine(AnsiTerminal.horizontalRule(80))
+                writeLine(AnsiTerminal.horizontalRule())
                 deferredMessages.forEach { writeLine(it) }
             }
-            writeLine(AnsiTerminal.horizontalRule(80))
+            writeLine(AnsiTerminal.horizontalRule())
             printSummary(lastState, returnCode)
             if (statusShown) {
                 writeLine()
-                writeLine(AnsiTerminal.horizontalRule(80))
+                writeLine(AnsiTerminal.horizontalRule())
                 statusShown = false
             }
             if (deferredErrorMessages.isNotEmpty()) {
-                writeLine(AnsiTerminal.horizontalRule(80))
+                writeLine(AnsiTerminal.horizontalRule())
                 deferredErrorMessages.forEach { writeLine("${AnsiTerminal.Color.RED.fg()}${it.trim()}${AnsiTerminal.reset()}") }
             }
 
@@ -488,7 +492,7 @@ object CliRunner {
             printStatRow("Median", AnsiTerminal.Color.PURPLE, AnsiTerminal.Color.PURPLE.fg(), state.currentMedian)
             printStatRow("StdDev", AnsiTerminal.Color.GREY, "", state.currentStandardDeviation)
         }
-        writeLine(AnsiTerminal.horizontalRule(80))
+        writeLine(AnsiTerminal.horizontalRule())
         val rcColor = if (returnCode == 0) AnsiTerminal.Color.GREEN else AnsiTerminal.Color.RED
         val avgSuffix = state?.currentAvg?.takeIf { it.value > 0.0 }?.let { " [Avg=${formatStat(it)} ${it.unit}]" } ?: ""
         writeLine("Return Code: ${rcColor.fg()}${"%03d".format(returnCode)}${AnsiTerminal.reset()}$avgSuffix")
