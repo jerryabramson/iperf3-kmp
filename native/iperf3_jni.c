@@ -1,3 +1,8 @@
+// Copyright (c) 2026, Jerold Abramson
+//
+// This source code is licensed under the BSD 3-Clause License found in
+// the LICENSE file in the root directory of this source tree.
+
 /*
  * iperf3_jni.c — thin JNI adapter over iperf3_bridge.c (see
  * IPERF3_NATIVE_INTEGRATION.md §8.4). All the actual iperf3 test-lifecycle,

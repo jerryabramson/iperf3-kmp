@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 package com.jabramson.iperf3_network_tester_kmp
 
 
@@ -88,3 +95,12 @@ expect fun getAppLocalDateTime(): AppLocalDateTime
  * @return AppCurrentTimeMillis
  */
 expect fun getAppCurrentTimeMillis(): AppCurrentTimeMillis
+
+/**
+ * Divisor applied to iperf3's own hard parallel-streams ceiling
+ * ([Iperf3KMPConstants.IPERF3_MAX_STREAMS]) to get this app's actual limit
+ * ([Iperf3KMPConstants.MAX_PARALLEL_STREAMS]) -- 4 on Android/iOS (mobile
+ * hardware/networks can't meaningfully drive iperf3's own full ceiling), 1 on
+ * desktop/JVM (real desktop CPUs/NICs can).
+ */
+expect fun getParallelStreamsDivisor(): Int

@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 package com.jabramson.iperf3_network_tester_kmp
 
 import java.util.UUID
@@ -27,3 +34,4 @@ actual fun getAppUUID(): AppUUID = JVMUUID()
 actual fun getAppLocalDateTime(): AppLocalDateTime = JVMLocalDateTime()
 actual fun getNotch(): Notch = JVMNotch()
 actual fun getAppCurrentTimeMillis(): AppCurrentTimeMillis = JVMCurrentTimeMillis()
+actual fun getParallelStreamsDivisor(): Int = 1

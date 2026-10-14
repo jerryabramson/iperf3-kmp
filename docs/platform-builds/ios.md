@@ -8,6 +8,12 @@
 - ARM-only by policy: `iosArm64` and `iosSimulatorArm64`. No Intel simulator.
 
 ## Build and run
+Before building/archiving in Xcode, sync the app version into `Config.xcconfig` from the repo-root `VERSION` file:
+```shell
+./gradlew syncVersions
+```
+This rewrites `Config.xcconfig`'s `MARKETING_VERSION`/`CURRENT_PROJECT_VERSION` to match `VERSION` -- Xcode has no automatic way to pick that up otherwise, since iOS isn't built via Gradle. See `PLATFORM_BUILD_NOTES.md` for the full versioning scheme.
+
 Open `iosApp/iosApp.xcodeproj` in Xcode and run. Gradle only builds the shared framework, never the signed `.app`.
 
 Command line, simulator:

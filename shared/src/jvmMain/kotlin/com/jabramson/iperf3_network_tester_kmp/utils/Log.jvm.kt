@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 package com.jabramson.iperf3_network_tester_kmp.utils
 
 /** Desktop has no logcat equivalent - d/i go to stdout, w/e to stderr,

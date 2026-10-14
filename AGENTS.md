@@ -51,6 +51,8 @@ No lint/typecheck commands are configured. Test sources: `shared/src/{commonTest
 - Don't remove `kotlin.mpp.enableCInteropCommonization=true` from `gradle.properties` — per-target Gradle compiles succeed without it, but the IDE then shows false unresolved-reference errors for cinterop declarations referenced from `iosMain`.
 - Not currently compatible with Kotlin Multiplatform 1.12, do not update libs.version.toml
 - Cleaning iperf3 configuration on Windows: `./gradlew cleanIperf3Configure`
+- **Versioning**: repo-root `VERSION` file is the single source of truth (Android/Desktop read it automatically at build time; iOS needs `./gradlew syncVersions` run manually before Xcode builds — see `PLATFORM_BUILD_NOTES.md`). Bump `VERSION`, not any per-platform version field directly.
+- **`packageDmg` always notarizes** (slow, and subject to Apple's own rate limits) — use `packageDmgLocal` for local iteration on macOS; it skips notarization/stapling.
 
 ## Current state
 

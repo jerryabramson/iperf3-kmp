@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 
 plugins {
@@ -34,8 +41,10 @@ android {
         applicationId = "com.jabramson.iperf3_network_tester_kmp"
         minSdk = libs.versions.android.minSdk.get().toInt()
         targetSdk = libs.versions.android.targetSdk.get().toInt()
-        versionCode = 1
-        versionName = "1.0"
+        // Read from the repo-root VERSION file (see root build.gradle.kts),
+        // not hardcoded here -- keeps this in sync with desktop/iOS/the CLI.
+        versionCode = rootProject.extra["appBuildNumber"] as Int
+        versionName = rootProject.extra["appVersion"] as String
     }
     packaging {
         resources {

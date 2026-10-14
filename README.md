@@ -283,6 +283,7 @@ per-platform install layout:
 | Platform                                                                                                                   | task                               |
 |----------------------------------------------------------------------------------------------------------------------------|------------------------------------|
 | macOS                                                                                                                      | ./gradlew :desktopApp:packageDmg   |
+| macOS — local dev build, skips notarization (see important note below)                                                   | ./gradlew :desktopApp:packageDmgLocal |
 | Debian/Ubuntu Linux x86_64                                                                                                 | ./gradlew :desktopApp:packageDeb   |
 | Fedora/Red Hat Linux x86_64 *                                                                                              | ./gradlew :desktopApp:packageRpm   |
 | Fedora/Red Hat aarch64 *                                                                                                   | ./gradlew :desktopApp:packageRpm   |
@@ -291,6 +292,9 @@ per-platform install layout:
 | Windows x86_64                                                                                                             | gradlew.bat :desktopApp:packageMsi |
 | Windows ARM64 (native ARM64 JVM; bundled `iperf3.exe` is x86_64 under Prism emulation — see WINDOWS_ARM64_IPERF3_PLAN.md)  | gradlew.bat :desktopApp:packageMsi |
 
+
+>[!IMPORTANT]
+>> `packageDmg` always runs a real `notarytool submit --wait` round trip to Apple's notarization service afterward (when `desktopApp.macNotarizationProfile` is configured) — this can take a while, and Apple's notary service enforces its own rate limits, so running `packageDmg` repeatedly in quick succession during local iteration risks hitting them. Use `./gradlew :desktopApp:packageDmgLocal` instead for local testing: same signed `.dmg`, but it skips notarization/stapling entirely. Only use plain `packageDmg` when you actually intend to distribute the result — a `packageDmgLocal` build isn't notarized, so Gatekeeper will flag it for anyone it's downloaded to.
 
 >[!TIP]
 >> _Both container-based scripts auto-detect Podman or Docker (whichever is on `PATH`) and build a native, non-emulated Linux container matching the host's CPU - including on Apple Silicon or Intel Macs via Docker Desktop, since it runs a real Linux VM matching the host architecture. Verified via Podman on Fedora x86_64 and Fedora aarch64, and via Docker Desktop on macOS (Apple Silicon) producing both `iperf3kmp_1.0.0_arm64.deb` and `iperf3kmp-1.0.0-1.aarch64.rpm`._

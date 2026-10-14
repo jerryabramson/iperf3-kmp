@@ -1,0 +1,7 @@
+
+
+Results:  [
+	    {2026-10-14T17:15:58} => OK [Result=0, min=2.35[0m[1m Gbits/sec[0m, max=2.36[0m[1m Gbits/sec[0m, avg=2.35 Gbits/sec]
+	    {2026-10-14T17:16:12} => OK [Result=0, min=2.35[0m[1m Gbits/sec[0m, max=2.36[0m[1m Gbits/sec[0m, avg=2.35 Gbits/sec]
+
+	  ]

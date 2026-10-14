@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
+  ~ Copyright (c) 2026, Jerold Abramson
+  ~
+  ~ This source code is licensed under the BSD 3-Clause License found in
+  ~ the LICENSE file in the root directory of this source tree.
+  -->
+
+<!--
   Backs the FileProvider declared in AndroidManifest.xml for the History
   screen's CSV export/Share button (see ShareCsv.android.kt), which writes
   exports under cacheDir/csv_exports/, matching the cache-path below.

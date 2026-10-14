@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 package com.jabramson.iperf3_network_tester_kmp.cli
 
 import com.jabramson.iperf3_network_tester_kmp.cli.AnsiTerminal.ARROW_LEFT
@@ -8,7 +15,9 @@ import com.jabramson.iperf3_network_tester_kmp.model.Iperf3RunningState
 import com.jabramson.iperf3_network_tester_kmp.runner.Iperf3Executor
 import com.jabramson.iperf3_network_tester_kmp.utils.UnitConvertedData
 import com.jabramson.iperf3_network_tester_kmp.utils.formatString
+import com.jabramson.iperf3_network_tester_kmp.utils.toHumanUnit
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiInputData
+import jdk.internal.org.jline.utils.Colors.s
 import kotlinx.coroutines.runBlocking
 import java.util.*
 
@@ -37,10 +46,10 @@ import java.util.*
  * parser -- so this uses one consolidated results line instead of
  * fabricating a second range.
  *
- * Scope note: also unlike BandWidthTester, this doesn't (yet) port its
- * `-l`/repeat-loop mode or its Android-over-`adb` mode -- Android already
- * has its own real in-app UI, and repeat/loop mode is a natural follow-up
- * rather than part of this first pass.
+ * Scope note: also unlike BandWidthTester, this doesn't port its
+ * Android-over-`adb` mode -- Android already has its own real in-app UI.
+ * `-l`/`--loop` below is this mode's own repeat-loop support, not a port of
+ * BandWidthTester's; see [CliArgs]'s `loopCount`/`portPool` doc comments.
  */
 object CliRunner {
     private val lock = Any()
@@ -59,20 +68,88 @@ object CliRunner {
     /** @return the process exit code: iperf3's own return code on a real run,
      * 0 after printing `--help`, 1 on a command-line usage error. */
     fun run(args: Array<String>): Int {
-        val options = CliArgs.parse(args)
+        val resultStatistics = ResultStatistics()
+
+            val options = CliArgs.parse(args)
 
         if (options.help) {
             writeLine(CliArgs.usage())
-            return 0
+            return -1
+        }
+        if (options.version) {
+            writeLine("iperf3KMP ${AppVersion.VERSION}")
+            return -1
         }
         if (options.error != null) {
             writeErrLine("${AnsiTerminal.Color.RED.fg()}${options.error}${AnsiTerminal.reset()}")
             writeErrLine()
             writeErrLine(CliArgs.usage())
-            return 1
+            return -1
         }
 
-        return runTest(options.input)
+        printHeader(options.input)
+
+        if (options.loopCount <= 1 && options.portPool == null) {
+            return runTest(options.input).iperf3ReturnCode
+
+        }
+        return runLoop(options)
+    }
+
+    /**
+     * Runs [CliOptions.loopCount] consecutive tests, each a full, independent
+     * [runTest] call (own header/summary, like a single run would print).
+     * When [CliOptions.portPool] is set, each iteration's port round-robins
+     * through that range instead of reusing the single `--port` value --
+     * see [CliOptions.portPool]'s doc comment for why.
+     *
+     * Exit code: 0 only if every iteration returned 0, else 1 -- individual
+     * iterations' real iperf3 return codes aren't meaningfully combinable
+     * into one number, so this reports pass/fail across the whole loop
+     * instead, alongside the printed per-iteration summary line below.
+     */
+    private fun runLoop(options: CliOptions): Int {
+        val pool = options.portPool
+        var failures = 0
+        val resultStatistics: MutableList<ResultStatistics> = emptyList<ResultStatistics>().toMutableList()
+        for (i in 0 until options.loopCount) {
+            val port = pool?.let { it.first + (i % (it.last - it.first + 1)) } ?: options.input.portNumber
+            val iterationInput = options.input.copy(portNumber = port)
+            writeLine()
+            val timestamp = AnsiTerminal.box(AnsiTerminal.Color.GREEN, Date().toString())
+            writeLine("[$timestamp] Loop ${i + 1}/${options.loopCount}  (port $port)")
+            writeLine()
+            val result = runTest(iterationInput)
+            resultStatistics.add(result)
+            if (result.iperf3ReturnCode != 0) failures++
+            if (i < options.loopCount - 1) {
+                write("pause between runs: 2 seconds ...")
+                System.out.flush()
+                try {
+                    Thread.sleep(2000)
+                } catch (_: InterruptedException) { /**/
+                }
+                write(AnsiTerminal.clearLine())
+                System.out.flush()
+            }
+        }
+        writeLine()
+        writeLine("Loop(s) complete: ${options.loopCount - failures}/${options.loopCount} succeeded")
+        writeLine()
+        resultStatistics.forEach {
+            val statColor = if (it.iperf3ReturnCode == 0) AnsiTerminal.Color.GREEN.fg() else AnsiTerminal.Color.RED.bold()
+            writeLine(
+                formatString("| ${AnsiTerminal.Color.BLUE.fg()}%s${AnsiTerminal.reset()} | $statColor%4.4s${AnsiTerminal.reset()}" +
+                        " | RC = $statColor%-03d${AnsiTerminal.reset()} |  min = %s |  max = %s |  avg = %s |",
+                    it.timeStamp.toString(),
+                    if (it.iperf3ReturnCode == 0) "OK" else "FAIL",
+                    it.iperf3ReturnCode,
+                    colorizeStat(AnsiTerminal.Color.RED.fg(), it.minimum),
+                    colorizeStat(AnsiTerminal.Color.BLUE.fg(), it.maximum),
+                    colorizeStat(AnsiTerminal.Color.PURPLE.fg(), it.average))
+            )
+        }
+        return if (failures == 0) 0 else 1
     }
 
     /** Minimum real time between status-line redrawing. The native bridge's
@@ -87,7 +164,9 @@ object CliRunner {
     private fun formatMessage(message: String): String =
         if (message.contains("Bridge")) "[" + AnsiTerminal.box(AnsiTerminal.Color.BLUE, message) + "]" else message
 
-    private fun runTest(input: UiInputData): Int {
+    private fun runTest(input: UiInputData): ResultStatistics {
+
+
         var tickIndex = 0
         var statusShown = false
         var lastState: Iperf3RunningState? = null
@@ -111,7 +190,7 @@ object CliRunner {
         var liveRowStarted = false
         val deferredMessages = mutableListOf<String>()
         val deferredErrorMessages = mutableListOf<String>()
-        printHeader(input)
+
 
         val executor = Iperf3Executor(
             updateProgress = { _, _ -> /* status line is driven by updateElapsedTime below instead */ },
@@ -137,6 +216,8 @@ object CliRunner {
                     }
 
                     if (!connectionLinePrinted && state.localHost.isNotEmpty() && state.remoteHost.isNotEmpty()) {
+                        write(AnsiTerminal.clearLine() + gotoRestingColumn(input, lastState))
+                        System.out.flush()
                         printConnectionLine(state)
                         connectionLinePrinted = true
                     }
@@ -221,8 +302,18 @@ object CliRunner {
             }
 
         }
-
-        return returnCode
+        if (lastState != null) {
+            val result = ResultStatistics(
+                iperf3ReturnCode = returnCode,
+                average = lastState.currentAvg,
+                minimum = lastState.currentMin,
+                maximum = lastState.currentMax,
+                median = lastState.currentMedian,
+                standardDeviation = lastState.currentStandardDeviation
+            )
+            return result
+        }
+        return ResultStatistics()
     }
 
     /** The exact argv [Iperf3Executor.startTest] builds internally, rebuilt
@@ -256,7 +347,7 @@ object CliRunner {
 
     private fun printHeader(input: UiInputData) {
         val timestamp = AnsiTerminal.box(AnsiTerminal.Color.GREEN, Date().toString())
-        writeLine("[$timestamp] Executing Command-line: ")
+        writeLine("iperf3KMP version ${AppVersion.VERSION}\n\n[$timestamp] Executing Command-line: ")
         // Printed in short, fixed-size chunks rather than one long logical line --
         // a single line here wraps wherever the caller's terminal happens to be
         // narrow, splitting a colored escape sequence (or even a token itself)
@@ -355,7 +446,7 @@ object CliRunner {
     private const val STAT_VALUE_COLUMN = 30
 
     private fun formatStat(data: UnitConvertedData): String =
-        if (data.value <= 0.0) "N/A" else "%,.2f".format(data.value)
+        if (data.value <= 0.0) "  N/A" else "%,5.2f".format(data.value)
 
     /**
      * Prints a formatted statistical row with a labeled value and its unit, applying color customizations.
@@ -368,13 +459,15 @@ object CliRunner {
     private fun printStatRow(label: String, labelColor: AnsiTerminal.Color, valueColor: String, data: UnitConvertedData) {
         writeLine(
             AnsiTerminal.gotoColumn(STAT_LABEL_COLUMN) + "[" + AnsiTerminal.box(labelColor, label) + "]" +
-                AnsiTerminal.gotoColumn(STAT_VALUE_COLUMN) +
-                "$valueColor${formatStat(data)}${AnsiTerminal.reset()}  " +
-                "${AnsiTerminal.bold()}${data.unit}${AnsiTerminal.reset()}"
+                    AnsiTerminal.gotoColumn(STAT_VALUE_COLUMN) +
+                    colorizeStat(valueColor, data)
         )
     }
 
-
+    private fun colorizeStat(valueColor: String, data: UnitConvertedData): String {
+        return "$valueColor${formatStat(data)}${AnsiTerminal.reset()}  " +
+                "${AnsiTerminal.bold()}${data.unit}${AnsiTerminal.reset()}"
+    }
 
     /**
      * Prints a formatted summary of the iperf3 test execution statistics and results,

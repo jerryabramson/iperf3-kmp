@@ -1,3 +1,8 @@
+// Copyright (c) 2026, Jerold Abramson
+//
+// This source code is licensed under the BSD 3-Clause License found in
+// the LICENSE file in the root directory of this source tree.
+
 /*
  * Hand-written iperf_config.h for iOS (arm64 device + arm64 simulator —
  * both cross-compiled from a macOS host via `xcrun -sdk iphoneos`/
