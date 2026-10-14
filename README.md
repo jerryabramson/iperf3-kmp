@@ -266,20 +266,16 @@ per-platform install layout:
 .\bin\iperf3kmp.bat my-iperf3-server.example.com -t 10 -P 4 
 ```
 
->#### Example Execution
->
+#### Example Execution
+
 <img alt="command-line execution" src="./command-line images.png" title="Command-line execution"/>
-1. ANSI output works out of the box on Windows too.
-2. Falls back to plain text (no escape codes) elsewhere when `TERM` looks like a dumb terminal, so redirected-to-a-file and CI/log-capture  output stays readable. 
-   * See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag list
-3. When checking how the live output actually looks (cursor positioning, in-place redraws, column
-alignment), test via the packaged binary (`bin/iperf3kmp`/`iperf3KMP.exe` or the built app directly)
-4. Do not use `./gradlew :desktopApp:run` 
->* even with  `--args`/ `--console=plain` 
->  * **Gradle** wraps the forked JVM's stdout, so it isn't a real TTY from the process's own perspective
->  * _Buffering_, `isatty()` detection, and _terminal-width queries_ can all behave differently than a genuine terminal).<br> 
->  * This affects exactly what this mode requires: 
->      * Absolute cursor positioning and live in-place redraws. 
+
+* See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag list.
+* ANSI output works out of the box on Windows too, and falls back to plain text (no escape codes) when `TERM` looks like a dumb terminal, so redirected-to-a-file and CI/log-capture output stays readable.
+* When checking how the live output actually looks (cursor positioning, in-place redraws, column alignment), test via the packaged binary (`bin/iperf3kmp`/`iperf3KMP.exe`) or the built app directly — **not** `./gradlew :desktopApp:run`, even with `--args`/`--console=plain`:
+  * Gradle wraps the forked JVM's stdout, so it isn't a real TTY from the process's own perspective.
+  * Buffering, `isatty()` detection, and terminal-width queries can all behave differently than a genuine terminal.
+  * This affects exactly what this mode requires: absolute cursor positioning and live in-place redraws.
 
 ---
 
