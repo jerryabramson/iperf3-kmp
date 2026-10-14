@@ -75,10 +75,10 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 
  ### `Source Code`
 
-| artifact        | Format   |
-|-----------------|----------|
-| * [zip](...)    | zipfile  |
-| * [tar.gz](...) | tarfile  |
+| artifact                                                                                      | Format   |
+|------------------------------------------------------------------------------------------------|----------|
+| [zip](https://github.com/jerryabramson/iperf3-kmp/archive/refs/tags/0.1.zip)                   | zipfile  |
+| [tar.gz](https://github.com/jerryabramson/iperf3-kmp/archive/refs/tags/0.1.tar.gz)             | tarfile  |
 
 
 
