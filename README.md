@@ -115,18 +115,15 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 
 # Code Layout
 * [/iosApp](./iosApp/iosApp) contains an iOS application.
-  - Even if you’re sharing your UI with Compose Multiplatform, you need this entry point for your iOS app.
-  - This is also where you should add SwiftUI code for your project.
-<br>  
+  * Even if you’re sharing your UI with Compose Multiplatform, you need this entry point for your iOS app.
+  * This is also where you should add SwiftUI code for your project.
 * [/shared](./shared/src) is for code that will be shared across your Compose Multiplatform applications.
-  - subfolders
-    - [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
-<br>  
-       - Sub-folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.  
-           - [androidMain](./shared/src/androidMain/kotlin) Android specific code.
-           - [jvmMain](./shared/src/jvmMain/kotlin) Desktop (JVM) specific code.
-           - [iosMain](./shared/src/iosMain/kotlin) iOS versions (Kotlin code).
-              - *For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app, this folder would be the right place for such calls.*
+  * [commonMain](./shared/src/commonMain/kotlin) is for code that’s common for all targets.
+  * Platform-specific subfolders — compiled only for the platform named in the folder:
+    * [androidMain](./shared/src/androidMain/kotlin) — Android specific code.
+    * [jvmMain](./shared/src/jvmMain/kotlin) — Desktop (JVM) specific code.
+    * [iosMain](./shared/src/iosMain/kotlin) — iOS specific code (Kotlin).
+      * For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app, this folder would be the right place for such calls.
 
 # Building and running recipes, per platform
 
