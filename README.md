@@ -1,5 +1,7 @@
 <h1 align="center">Network Testing (iperf3) GUI and CLI</h1>
 
+iperf3KMP is a cross-platform network performance testing app — Android, iOS, and desktop (macOS, Windows, Linux) — built from a single Kotlin Multiplatform codebase with a shared Compose UI, so the experience is consistent everywhere you run it. Rather than wrapping a CLI or faking results, it drives a real embedded iperf3 3.21 client in-process on Android, iOS, and desktop via JNI and Kotlin/Native cinterop against the same C core, giving genuine TCP/UDP throughput, jitter, and loss measurements rather than a simulated approximation. Results are saved locally (Room/SQLite) with a history view and CSV export for later analysis, and the desktop build ships as a standalone CLI tool in addition to the GUI, with native installers (`.dmg`, `.msi`, `.deb`, `.rpm`) for each OS.
+
 > [!IMPORTANT]
 > * This application supports all known hardware devices and systems, on all supported hardware architectures.
 > * This application consists of a single code-base with approximately  `80%` code sharing across the board!
