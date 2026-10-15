@@ -170,14 +170,14 @@ object CliRunner {
                 // Thousands grouping via Kotlin's own format, passed in as %s: the shared
                 // native formatString (native_format.h) only accepts C printf flags
                 // (- + space # 0), so a Java-style "%,d" is a malformed specifier there.
-                formatString("| Test Time: ${AnsiTerminal.Color.BLUE.fg()}%s${AnsiTerminal.reset()} ms | $statColor%4.4s${AnsiTerminal.reset()}" +
-                        " | RC = $statColor%-03d${AnsiTerminal.reset()} |  min = %s |  max = %s |  avg = %s |",
+                formatString("| Test Time: ${AnsiTerminal.Color.BLUE.fg()}%10.10s${AnsiTerminal.reset()} ms | $statColor%4.4s${AnsiTerminal.reset()} " +
+                             "| RC = $statColor%-03d${AnsiTerminal.reset()} |  min = %s |  max = %s |  avg = %s |",
                     "%,d".format(elapsedTestTimeMs),
                     if (it.iperf3ReturnCode == 0) "OK" else "FAIL",
                     it.iperf3ReturnCode,
                     colorizeStat(AnsiTerminal.Color.RED.fg(), it.minimum),
                     colorizeStat(AnsiTerminal.Color.BLUE.fg(), it.maximum),
-                    colorizeStat(AnsiTerminal.Color.PURPLE.fg(), it.average))
+                    colorizeStat(AnsiTerminal.Color.GREEN.fg(), it.average))
             )
         }
         return if (failures == 0) 0 else 1
@@ -326,7 +326,7 @@ object CliRunner {
             writeLine(AnsiTerminal.horizontalRule())
             deferredErrorMessages.forEach { writeLine("${AnsiTerminal.Color.RED.fg()}${it.trim()}${AnsiTerminal.reset()}") }
         }
-        if (lastState != null) {
+        if (lastState != null && returnCode == 0) {
             val result = ResultStatistics(
                 startTimeStamp = startedAt,
                 endTimeStamp = Date(),
@@ -471,8 +471,7 @@ object CliRunner {
     private const val STAT_LABEL_COLUMN = 18
     private const val STAT_VALUE_COLUMN = 30
 
-    private fun formatStat(data: UnitConvertedData): String =
-        if (data.value <= 0.0) "  N/A" else "%,5.2f".format(data.value)
+    private fun formatStat(data: UnitConvertedData): String = return data.getValue(false)
 
     /**
      * Prints a formatted statistical row with a labeled value and its unit, applying color customizations.
@@ -484,15 +483,16 @@ object CliRunner {
      */
     private fun printStatRow(label: String, labelColor: AnsiTerminal.Color, valueColor: String, data: UnitConvertedData) {
         writeLine(
-            AnsiTerminal.gotoColumn(STAT_LABEL_COLUMN) + "[" + AnsiTerminal.box(labelColor, label) + "]" +
-                    AnsiTerminal.gotoColumn(STAT_VALUE_COLUMN) +
-                    colorizeStat(valueColor, data)
+            AnsiTerminal.gotoColumn(STAT_LABEL_COLUMN) +
+            "[" + AnsiTerminal.box(labelColor, label) + "]" +
+            AnsiTerminal.gotoColumn(STAT_VALUE_COLUMN) +
+            colorizeStat(valueColor, data)
         )
     }
 
     private fun colorizeStat(valueColor: String, data: UnitConvertedData): String {
-        return "$valueColor${formatStat(data)}${AnsiTerminal.reset()}  " +
-                "${AnsiTerminal.bold()}${data.unit}${AnsiTerminal.reset()}"
+        return valueColor + formatStat(data) + AnsiTerminal.reset() + " " +
+        AnsiTerminal.bold() + data.getUnit() + AnsiTerminal.reset()
     }
 
     /**
@@ -511,7 +511,7 @@ object CliRunner {
         if (state != null && state.intervalNumber >= 0) {
             writeLine()
             //writeLine(getSampleSize(state))
-            printStatRow("Avg", AnsiTerminal.Color.GREY, "", state.currentAvg)
+            printStatRow("Avg", AnsiTerminal.Color.GREEN, AnsiTerminal.Color.GREEN.fg(), state.currentAvg)
             printStatRow("Min", AnsiTerminal.Color.RED, AnsiTerminal.Color.RED.fg(), state.currentMin)
             printStatRow("Max", AnsiTerminal.Color.BLUE, AnsiTerminal.Color.BLUE.fg(), state.currentMax)
             printStatRow("Median", AnsiTerminal.Color.PURPLE, AnsiTerminal.Color.PURPLE.fg(), state.currentMedian)
@@ -519,7 +519,7 @@ object CliRunner {
             writeLine(AnsiTerminal.horizontalRule())
         }
         val rcColor = if (returnCode == 0) AnsiTerminal.Color.GREEN else AnsiTerminal.Color.RED
-        val avgSuffix = state?.currentAvg?.takeIf { it.value > 0.0 }?.let { " [Avg=${formatStat(it)} ${it.unit}]" } ?: ""
+        val avgSuffix = state?.currentAvg?.takeIf { it.value > 0.0 }?.let { " [Avg: ${colorizeStat(AnsiTerminal.Color.GREEN.fg(), it)}]" } ?: ""
         writeLine("Return Code: ${rcColor.fg()}${"%03d".format(returnCode)}${AnsiTerminal.reset()}$avgSuffix")
     }
 
