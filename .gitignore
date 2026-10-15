@@ -18,3 +18,7 @@ iosApp/iosApp.xcodeproj
 !*.xcworkspace/contents.xcworkspacedata
 **/xcshareddata/WorkspaceSettings.xcsettings
 node_modules/
+.ai/
+
+# Per-developer iOS signing (Apple team ID, bundle-ID prefix) -- see docs/platform-builds/ios.md
+iosApp/Configuration/LocalSigning.xcconfig

@@ -171,7 +171,10 @@ $ANDROID_HOME/platform-tools/adb shell am start \
  * Easiest is opening [iosApp/iosApp.xcodeproj](./iosApp/iosApp.xcodeproj) in Xcode and
  running from there
    * The application can also be built and launched on a Simulator entirely from the command line.
-   * no Xcode UI required.<br>
+   * no Xcode UI required.
+ * Simulator builds need no Apple account. To run on your own iPhone/iPad, put your Team ID and a bundle-ID prefix in a
+   gitignored `iosApp/Configuration/LocalSigning.xcconfig` (copy `LocalSigning.xcconfig.template`) — see
+   [docs/platform-builds/ios.md](./docs/platform-builds/ios.md#signing-setup-your-own-apple-team).<br>
 >[!WARNING]
 >   * If the following error is displayed at build time, you need to open the application using Xcode, login to Apple developer, and enter the required `BundleID` 
 >```shell

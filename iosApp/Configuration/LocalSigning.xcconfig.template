@@ -1,0 +1,13 @@
+// Copy this file to LocalSigning.xcconfig (same folder) and fill in your own
+// values. LocalSigning.xcconfig is gitignored, so your Apple Developer team ID
+// never gets committed. See docs/platform-builds/ios.md.
+
+// Your 10-character Apple Developer Team ID: developer.apple.com -> Account ->
+// Membership details, or Xcode -> Settings -> Accounts -> your team.
+TEAM_ID=
+
+// A reverse-DNS prefix you control. Bundle IDs are globally unique per Apple
+// team, so com.jabramson (the default) is already taken -- use your own,
+// e.g. com.yourname. The app's bundle ID becomes
+// $(BUNDLE_ID_PREFIX).iperf3-network-tester-kmp
+BUNDLE_ID_PREFIX=com.example

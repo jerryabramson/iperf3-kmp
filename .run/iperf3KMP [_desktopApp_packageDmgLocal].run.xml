@@ -1,12 +1,5 @@
-<!--
-  ~ Copyright (c) 2026, Jerold Abramson
-  ~
-  ~ This source code is licensed under the BSD 3-Clause License found in
-  ~ the LICENSE file in the root directory of this source tree.
-  -->
-
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="iperf3KMP [:desktopApp:packageDmg]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Packaging">
+  <configuration default="false" name="iperf3KMP [:desktopApp:packageDmgLocal]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Packaging">
     <ExternalSystemSettings>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -17,7 +10,7 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value=":desktopApp:packageDmg" />
+          <option value=":desktopApp:packageDmgLocal" />
         </list>
       </option>
       <option name="vmOptions" />

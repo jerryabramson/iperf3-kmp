@@ -95,8 +95,15 @@ val stageWindowsIperf3 = tasks.register<Sync>("stageWindowsIperf3") {
 // ~/.gradle/gradle.properties (never this repo's own, which is committed):
 //   desktopApp.macSigningIdentity=Developer ID Application: Your Name (TEAMID)
 //   desktopApp.macNotarizationProfile=<the name you gave `notarytool store-credentials`>
+//   desktopApp.macBundleId=com.yourname.iperf3-network-tester-kmp   (optional)
+// Full setup steps: docs/platform-builds/macos-arm64.md.
 val macSigningIdentity = providers.gradleProperty("desktopApp.macSigningIdentity").orNull
 val macNotarizationProfile = providers.gradleProperty("desktopApp.macNotarizationProfile").orNull
+// Defaults to the bundle ID iOS uses (Config.xcconfig's PRODUCT_BUNDLE_IDENTIFIER
+// with the default BUNDLE_ID_PREFIX). Anyone signing with their own Developer ID
+// should override it, or their build claims the same identity as the official one.
+val macBundleId = providers.gradleProperty("desktopApp.macBundleId")
+    .orElse("com.jabramson.iperf3-network-tester-kmp").get()
 
 compose.desktop {
     application {
@@ -113,11 +120,10 @@ compose.desktop {
             macOS {
                 iconFile.set(project.file("src/main/resources/app-icon.icns"))
                 if (macSigningIdentity != null) {
-                    // Same bundle ID already used for iOS (Config.xcconfig's
-                    // PRODUCT_BUNDLE_IDENTIFIER) -- required once signing is on,
-                    // and must use hyphens, not the Android package's underscores
-                    // (jpackage/codesign reject underscores in a bundle ID).
-                    bundleID = "com.jabramson.iperf3-network-tester-kmp"
+                    // Required once signing is on, and must use hyphens, not the
+                    // Android package's underscores (jpackage/codesign reject
+                    // underscores in a bundle ID).
+                    bundleID = macBundleId
                     signing {
                         sign.set(true)
                         identity.set(macSigningIdentity)

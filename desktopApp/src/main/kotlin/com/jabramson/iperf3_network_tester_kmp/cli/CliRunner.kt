@@ -11,13 +11,12 @@ import com.jabramson.iperf3_network_tester_kmp.cli.AnsiTerminal.ARROW_LEFT
 import com.jabramson.iperf3_network_tester_kmp.cli.AnsiTerminal.ARROW_RIGHT
 import com.jabramson.iperf3_network_tester_kmp.cli.CliRunner.TRACK_COLUMN
 import com.jabramson.iperf3_network_tester_kmp.cli.CliRunner.runTest
+import com.jabramson.iperf3_network_tester_kmp.cli.CliRunner.statusLabel
 import com.jabramson.iperf3_network_tester_kmp.model.Iperf3RunningState
 import com.jabramson.iperf3_network_tester_kmp.runner.Iperf3Executor
 import com.jabramson.iperf3_network_tester_kmp.utils.UnitConvertedData
 import com.jabramson.iperf3_network_tester_kmp.utils.formatString
-import com.jabramson.iperf3_network_tester_kmp.utils.toHumanUnit
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiInputData
-import jdk.internal.org.jline.utils.Colors.s
 import kotlinx.coroutines.runBlocking
 import java.util.*
 
@@ -54,6 +53,7 @@ import java.util.*
 object CliRunner {
     private val lock = Any()
     private val tick = listOf("-", "\\", "|", "/")
+    private var cleanExit = false
 
     /** The only place this module appends a line break -- everywhere else
      * writes to stdout/stderr go through this (or [AnsiTerminal.clearLine]'s
@@ -68,6 +68,22 @@ object CliRunner {
     /** @return the process exit code: iperf3's own return code on a real run,
      * 0 after printing `--help`, 1 on a command-line usage error. */
     fun run(args: Array<String>): Int {
+
+        Runtime.getRuntime().addShutdownHook(Thread {
+            if (!cleanExit) {
+                write(AnsiTerminal.clearLine() + AnsiTerminal.gotoColumn(1) + AnsiTerminal.reset())
+                try {
+                    Thread.sleep(1000)
+                } catch (_: InterruptedException) { /**/
+                }
+                write(AnsiTerminal.clearLine() + AnsiTerminal.gotoColumn(1) + AnsiTerminal.reset())
+                System.out.flush()
+                writeLine()
+                writeLine("${AnsiTerminal.Color.RED.bold()}Shutdown hook called${AnsiTerminal.reset()}! Exiting.")
+                writeLine()
+                System.out.flush()
+            }
+        })
         AnsiTerminal.setColumnWidth()
         val resultStatistics = ResultStatistics()
 
@@ -94,6 +110,7 @@ object CliRunner {
             return runTest(options.input).iperf3ReturnCode
 
         }
+        cleanExit = true
         return runLoop(options)
     }
 
