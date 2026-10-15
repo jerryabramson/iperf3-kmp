@@ -11,7 +11,8 @@ import com.jabramson.iperf3_network_tester_kmp.utils.UnitConvertedData
 import java.util.Date
 
 data class ResultStatistics(
-    val timeStamp: Date = Date(),
+    val startTimeStamp: Date = Date(),
+    val endTimeStamp: Date,
     val average: UnitConvertedData = UnitConvertedData(),
     val minimum: UnitConvertedData = UnitConvertedData(value = Double.MAX_VALUE),
     val maximum: UnitConvertedData = UnitConvertedData(value = Double.MIN_VALUE),

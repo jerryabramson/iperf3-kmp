@@ -9,9 +9,6 @@ package com.jabramson.iperf3_network_tester_kmp.cli
 
 import com.jabramson.iperf3_network_tester_kmp.cli.AnsiTerminal.ARROW_LEFT
 import com.jabramson.iperf3_network_tester_kmp.cli.AnsiTerminal.ARROW_RIGHT
-import com.jabramson.iperf3_network_tester_kmp.cli.CliRunner.TRACK_COLUMN
-import com.jabramson.iperf3_network_tester_kmp.cli.CliRunner.runTest
-import com.jabramson.iperf3_network_tester_kmp.cli.CliRunner.statusLabel
 import com.jabramson.iperf3_network_tester_kmp.model.Iperf3RunningState
 import com.jabramson.iperf3_network_tester_kmp.runner.Iperf3Executor
 import com.jabramson.iperf3_network_tester_kmp.utils.UnitConvertedData
@@ -53,7 +50,16 @@ import java.util.*
 object CliRunner {
     private val lock = Any()
     private val tick = listOf("-", "\\", "|", "/")
+
+    /** Set once [run] returns by any path. The shutdown hook only prints its
+     * "interrupted" notice when this is still false, i.e. on Ctrl-C/SIGTERM. */
+    @Volatile
     private var cleanExit = false
+
+    /** Set (under [lock]) by the shutdown hook so the live status-line callbacks,
+     * which keep running on other threads until the JVM halts, stop drawing
+     * over the hook's final message. */
+    private var shuttingDown = false
 
     /** The only place this module appends a line break -- everywhere else
      * writes to stdout/stderr go through this (or [AnsiTerminal.clearLine]'s
@@ -66,51 +72,51 @@ object CliRunner {
     private fun writeErrLine(text: String = "") = System.err.print(text + AnsiTerminal.NL)
 
     /** @return the process exit code: iperf3's own return code on a real run,
-     * 0 after printing `--help`, 1 on a command-line usage error. */
+     * 0 after printing `--help`/`--version`, 1 on a command-line usage error. */
     fun run(args: Array<String>): Int {
-
         Runtime.getRuntime().addShutdownHook(Thread {
             if (!cleanExit) {
-                write(AnsiTerminal.clearLine() + AnsiTerminal.gotoColumn(1) + AnsiTerminal.reset())
-                try {
-                    Thread.sleep(1000)
-                } catch (_: InterruptedException) { /**/
+                synchronized(lock) {
+                    shuttingDown = true
+                    write(AnsiTerminal.clearLine() + AnsiTerminal.reset())
+                    writeLine()
+                    writeLine("${AnsiTerminal.Color.RED.bold()}Shutdown hook called${AnsiTerminal.reset()}! Exiting.")
+                    writeLine()
+                    System.out.flush()
                 }
-                write(AnsiTerminal.clearLine() + AnsiTerminal.gotoColumn(1) + AnsiTerminal.reset())
-                System.out.flush()
-                writeLine()
-                writeLine("${AnsiTerminal.Color.RED.bold()}Shutdown hook called${AnsiTerminal.reset()}! Exiting.")
-                writeLine()
-                System.out.flush()
             }
         })
-        AnsiTerminal.setColumnWidth()
-        val resultStatistics = ResultStatistics()
+        try {
+            return runCli(args)
+        } finally {
+            cleanExit = true
+        }
+    }
 
+    private fun runCli(args: Array<String>): Int {
+        AnsiTerminal.setColumnWidth()
             val options = CliArgs.parse(args)
 
         if (options.help) {
             writeLine(CliArgs.usage())
-            return -1
+            return 0
         }
         if (options.version) {
             writeLine("iperf3KMP ${AppVersion.VERSION}")
-            return -1
+            return 0
         }
         if (options.error != null) {
             writeErrLine("${AnsiTerminal.Color.RED.fg()}${options.error}${AnsiTerminal.reset()}")
             writeErrLine()
             writeErrLine(CliArgs.usage())
-            return -1
+            return 1
         }
 
         printHeader(options.input)
 
         if (options.loopCount <= 1 && options.portPool == null) {
             return runTest(options.input).iperf3ReturnCode
-
         }
-        cleanExit = true
         return runLoop(options)
     }
 
@@ -123,7 +129,7 @@ object CliRunner {
      *
      * Exit code: 0 only if every iteration returned 0, else 1 -- individual
      * iterations' real iperf3 return codes aren't meaningfully combinable
-     * into one number, so this reports pass/fail across the whole loop
+     * into one number, so these reports pass/fail across the whole loop
      * instead, alongside the printed per-iteration summary line below.
      */
     private fun runLoop(options: CliOptions): Int {
@@ -136,10 +142,11 @@ object CliRunner {
             val port = pool?.let { it.first + (i % (it.last - it.first + 1)) } ?: options.input.portNumber
             val iterationInput = options.input.copy(portNumber = port)
             writeLine()
-            val timestamp = AnsiTerminal.box(AnsiTerminal.Color.GREEN, Date().toString())
+            val startedAt = Date()
+            val timestamp = AnsiTerminal.box(AnsiTerminal.Color.GREEN, startedAt.toString())
             writeLine("[$timestamp] Loop ${i + 1}/${options.loopCount}  (port $port)")
             writeLine()
-            val result = runTest(iterationInput)
+            val result = runTest(iterationInput, startedAt)
             resultStatistics.add(result)
             if (result.iperf3ReturnCode != 0) failures++
             if (i < options.loopCount - 1) {
@@ -157,11 +164,15 @@ object CliRunner {
         writeLine("Loop(s) complete: ${options.loopCount - failures}/${options.loopCount} succeeded")
         writeLine()
         resultStatistics.forEach {
+            val elapsedTestTimeMs = it.endTimeStamp.time - it.startTimeStamp.time
             val statColor = if (it.iperf3ReturnCode == 0) AnsiTerminal.Color.GREEN.fg() else AnsiTerminal.Color.RED.bold()
             writeLine(
-                formatString("| ${AnsiTerminal.Color.BLUE.fg()}%s${AnsiTerminal.reset()} | $statColor%4.4s${AnsiTerminal.reset()}" +
+                // Thousands grouping via Kotlin's own format, passed in as %s: the shared
+                // native formatString (native_format.h) only accepts C printf flags
+                // (- + space # 0), so a Java-style "%,d" is a malformed specifier there.
+                formatString("| Test Time: ${AnsiTerminal.Color.BLUE.fg()}%s${AnsiTerminal.reset()} ms | $statColor%4.4s${AnsiTerminal.reset()}" +
                         " | RC = $statColor%-03d${AnsiTerminal.reset()} |  min = %s |  max = %s |  avg = %s |",
-                    it.timeStamp.toString(),
+                    "%,d".format(elapsedTestTimeMs),
                     if (it.iperf3ReturnCode == 0) "OK" else "FAIL",
                     it.iperf3ReturnCode,
                     colorizeStat(AnsiTerminal.Color.RED.fg(), it.minimum),
@@ -184,11 +195,12 @@ object CliRunner {
     private fun formatMessage(message: String): String =
         if (message.contains("Bridge")) "[" + AnsiTerminal.box(AnsiTerminal.Color.BLUE, message) + "]" else message
 
-    private fun runTest(input: UiInputData): ResultStatistics {
+    /** @param startedAt when this run began -- [runLoop] passes the same time
+     * its loop header shows, so the final summary table matches it. */
+    private fun runTest(input: UiInputData, startedAt: Date = Date()): ResultStatistics {
 
 
         var tickIndex = 0
-        var statusShown = false
         var lastState: Iperf3RunningState? = null
         var lastStatusRedrawAt = 0L
         var connectionLinePrinted = false
@@ -216,6 +228,7 @@ object CliRunner {
             updateProgress = { _, _ -> /* status line is driven by updateElapsedTime below instead */ },
             updateElapsedTime = {
                 synchronized(lock) {
+                    if (shuttingDown) return@synchronized
                     val now = System.currentTimeMillis()
                     if (now - lastStatusRedrawAt >= STATUS_REDRAW_INTERVAL_MS) {
                         liveRowStarted = true
@@ -223,17 +236,14 @@ object CliRunner {
                         val spinner = tick[tickIndex.mod(tick.size)]
                         write("${AnsiTerminal.gotoColumn(TRACK_COLUMN)}$spinner${getStatusLabel(elapsedMillis = now - startTime, state =  lastState)}${gotoRestingColumn(input, lastState)}")
                         System.out.flush()
-                        statusShown = true
                         lastStatusRedrawAt = now
                     }
                 }
             },
             stdout = { state, newMessage ->
                 synchronized(lock) {
+                    if (shuttingDown) return@synchronized
                     lastState = state
-                    if (statusShown) {
-                        statusShown = false
-                    }
 
                     if (!connectionLinePrinted && state.localHost.isNotEmpty() && state.remoteHost.isNotEmpty()) {
                         write(AnsiTerminal.clearLine() + gotoRestingColumn(input, lastState))
@@ -306,35 +316,30 @@ object CliRunner {
         synchronized(lock) {
             write("${AnsiTerminal.gotoColumn(TRACK_COLUMN)} ${AnsiTerminal.gotoColumn(1)}")
             writeLine()
-            if (deferredMessages.isNotEmpty()) {
-                writeLine(AnsiTerminal.horizontalRule())
-                deferredMessages.forEach { writeLine(it) }
-            }
+            // Exactly one rule between sections: messages, summary, then errors.
             writeLine(AnsiTerminal.horizontalRule())
+            if (deferredMessages.isNotEmpty()) {
+                deferredMessages.forEach { writeLine(it) }
+                writeLine(AnsiTerminal.horizontalRule())
+            }
             printSummary(lastState, returnCode)
-            if (statusShown) {
-                writeLine()
-                writeLine(AnsiTerminal.horizontalRule())
-                statusShown = false
-            }
-            if (deferredErrorMessages.isNotEmpty()) {
-                writeLine(AnsiTerminal.horizontalRule())
-                deferredErrorMessages.forEach { writeLine("${AnsiTerminal.Color.RED.fg()}${it.trim()}${AnsiTerminal.reset()}") }
-            }
-
+            writeLine(AnsiTerminal.horizontalRule())
+            deferredErrorMessages.forEach { writeLine("${AnsiTerminal.Color.RED.fg()}${it.trim()}${AnsiTerminal.reset()}") }
         }
         if (lastState != null) {
             val result = ResultStatistics(
+                startTimeStamp = startedAt,
+                endTimeStamp = Date(),
                 iperf3ReturnCode = returnCode,
                 average = lastState.currentAvg,
                 minimum = lastState.currentMin,
                 maximum = lastState.currentMax,
                 median = lastState.currentMedian,
-                standardDeviation = lastState.currentStandardDeviation
+                standardDeviation = lastState.currentStandardDeviation,
             )
             return result
         }
-        return ResultStatistics()
+        return ResultStatistics(startTimeStamp = startedAt, endTimeStamp = Date())
     }
 
     /** The exact argv [Iperf3Executor.startTest] builds internally, rebuilt
@@ -500,16 +505,19 @@ object CliRunner {
      * A value of 0 typically indicates success, while non-zero values indicate errors.
      */
     private fun printSummary(state: Iperf3RunningState?, returnCode: Int) {
-        writeLine()
+        // The stat block (and its own closing rule) only when there's something
+        // to show -- a run that failed before any interval goes straight to the
+        // return code instead of printing an empty section between two rules.
         if (state != null && state.intervalNumber >= 0) {
+            writeLine()
             //writeLine(getSampleSize(state))
             printStatRow("Avg", AnsiTerminal.Color.GREY, "", state.currentAvg)
             printStatRow("Min", AnsiTerminal.Color.RED, AnsiTerminal.Color.RED.fg(), state.currentMin)
             printStatRow("Max", AnsiTerminal.Color.BLUE, AnsiTerminal.Color.BLUE.fg(), state.currentMax)
             printStatRow("Median", AnsiTerminal.Color.PURPLE, AnsiTerminal.Color.PURPLE.fg(), state.currentMedian)
             printStatRow("StdDev", AnsiTerminal.Color.GREY, "", state.currentStandardDeviation)
+            writeLine(AnsiTerminal.horizontalRule())
         }
-        writeLine(AnsiTerminal.horizontalRule())
         val rcColor = if (returnCode == 0) AnsiTerminal.Color.GREEN else AnsiTerminal.Color.RED
         val avgSuffix = state?.currentAvg?.takeIf { it.value > 0.0 }?.let { " [Avg=${formatStat(it)} ${it.unit}]" } ?: ""
         writeLine("Return Code: ${rcColor.fg()}${"%03d".format(returnCode)}${AnsiTerminal.reset()}$avgSuffix")
@@ -607,7 +615,7 @@ object CliRunner {
         if (!state.omitted) {
             val c = if (!state.stalled) color else AnsiTerminal.Color.RED
             // Fill every cell already passed, not just the one next to the arrow --
-            // explicit each redraw (not relying on earlier draws' cells persisting
+            // explicit each redrawing (not relying on earlier draws' cells persisting
             // on screen untouched), so the bar reads as "[-->   ]" growing to
             // "[--->  ]" as the test progresses, regardless of terminal quirks.
             if (input.isReverse) {

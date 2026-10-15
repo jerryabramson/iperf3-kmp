@@ -44,9 +44,25 @@ object AnsiTerminal {
     }
 
     fun setColumnWidth() {
-        val columnString = System.getenv("COLUMNS")
-        width = columnString?.toInt() ?: 80
+        width = System.getenv("COLUMNS")?.trim()?.toIntOrNull()?.takeIf { it > 0 }
+            ?: sttyColumns()
+            ?: 80
+    }
 
+    /** Fallback for when `COLUMNS` isn't exported (many shells only set it as a
+     * shell variable; `ssh host cmd` and cron never have it): ask the
+     * controlling terminal directly. Null on Windows, with no tty (output
+     * redirected, IDE/Gradle runs), or on any failure. */
+    private fun sttyColumns(): Int? {
+        if ((System.getProperty("os.name") ?: "").startsWith("Windows", ignoreCase = true)) return null
+        return try {
+            val process = ProcessBuilder("sh", "-c", "stty size < /dev/tty").redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().readText().trim()
+            if (process.waitFor() != 0) null
+            else output.split(" ").getOrNull(1)?.toIntOrNull()?.takeIf { it > 0 }
+        } catch (_: Exception) {
+            null
+        }
     }
 
     private var width = 80

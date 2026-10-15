@@ -290,8 +290,8 @@ val notarizeAndStapleDmg = tasks.register("notarizeAndStapleDmg") {
 // body can't retroactively un-wire another task's finalizedBy once execution
 // has started -- so this checks the requested task names directly rather
 // than a project property a task action could toggle too late.
-val skipDmgNotarization = gradle.startParameter.taskNames.any {
-    it == "packageDmgLocal" || it.endsWith(":packageDmgLocal")
+val skipDmgNotarization = gradle.startParameter.taskNames.any { name ->
+    listOf("packageDmgLocal", "installDmg").any { name == it || name.endsWith(":$it") }
 }
 
 // Same afterEvaluate reasoning as packageDeb above -- packageDmg doesn't exist
@@ -309,6 +309,65 @@ tasks.register("packageDmgLocal") {
         "but not notarized/stapled, so it's fine for testing packaging locally but not " +
         "for distributing to anyone else (Gatekeeper will flag it)."
     dependsOn("packageDmg")
+}
+
+// Local-testing shortcut for CLI changes: build the .dmg (packageDmgLocal, so
+// no notarization round trip -- see skipDmgNotarization above) and install its
+// .app into /Applications the way install.sh does, with no Finder window:
+// `hdiutil attach -nobrowse`, copy, detach. /usr/local/bin/iperf3KMP-style
+// symlinks into /Applications/iperf3KMP.app keep working across reinstalls.
+tasks.register("installDmg") {
+    group = "compose desktop"
+    description = "Builds the .dmg via packageDmgLocal (no notarization) and installs " +
+        "its .app into /Applications using hdiutil, without opening Finder. macOS only."
+    dependsOn("packageDmgLocal")
+    outputs.upToDateWhen { false }
+
+    // Local vals, not script-level references, for the configuration cache --
+    // same reason as notarizeAndStapleDmg above.
+    val dmgDirProvider = layout.buildDirectory.dir("compose/binaries/main/dmg")
+    val isMac = org.gradle.internal.os.OperatingSystem.current().isMacOsX
+    val mountRoot = temporaryDir   // build/tmp/installDmg
+
+    onlyIf { isMac }
+
+    doLast {
+        fun run(vararg cmd: String): String {
+            val process = ProcessBuilder(*cmd).redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().readText()
+            val exitCode = process.waitFor()
+            check(exitCode == 0) { "Command failed (${cmd.joinToString(" ")}):\n$output" }
+            return output
+        }
+
+        val dmgDir = dmgDirProvider.get().asFile
+        val dmgFile = dmgDir.listFiles { f -> f.extension == "dmg" }?.maxByOrNull { it.lastModified() }
+            ?: error("No .dmg found in $dmgDir to install")
+
+        val applications = File("/Applications")
+        check(applications.canWrite()) {
+            "/Applications isn't writable by this user -- install manually with sudo, or use install.sh."
+        }
+
+        val mountPoint = File(mountRoot, "mnt").apply { mkdirs() }
+        run("hdiutil", "attach", dmgFile.absolutePath, "-mountpoint", mountPoint.absolutePath,
+            "-nobrowse", "-readonly", "-noautoopen", "-quiet")
+        try {
+            val app = mountPoint.listFiles { f -> f.extension == "app" }?.firstOrNull()
+                ?: error("No .app bundle found inside ${dmgFile.name}")
+            val target = File(applications, app.name)
+            if (target.exists()) {
+                check(target.deleteRecursively()) { "Couldn't remove the existing $target" }
+            }
+            // ditto, not cp -R: preserves the bundle's code signature, xattrs and symlinks.
+            run("ditto", app.absolutePath, target.absolutePath)
+            println("Installed ${dmgFile.name} -> $target")
+            println("CLI: \"$target/Contents/MacOS/${app.nameWithoutExtension}\" --help")
+        } finally {
+            run("hdiutil", "detach", mountPoint.absolutePath, "-quiet")
+            mountPoint.delete()
+        }
+    }
 }
 
 // Both the packaging tasks and `run` read appResourcesRootDir, so stage first.
