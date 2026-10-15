@@ -47,6 +47,9 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 >> ```powershell
 >> irm https://raw.githubusercontent.com/jerryabramson/iperf3-kmp/master/install.ps1 | iex
 >> ```
+>> Windows isn't distributed as a GitHub release asset — the script above just
+>> points you at the Microsoft Store listing (pending certification) or the
+>> platform build guide below.
 >> 
 
 ---
@@ -61,12 +64,12 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 | [iperf3KMP-1.0.0.dmg](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP-1.0.0.dmg)                     | macOS                  | `aarch64`    |
 | [iperf3kmp_1.0.0_arm64.deb](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp_1.0.0_arm64.deb)         | Debian/Ubuntu          | `arm64`      |
 | [iperf3kmp-1.0.0-1.aarch64.rpm](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp-1.0.0-1.aarch64.rpm) | Fedora/RHEL            | `aarch64`    |
-| iperf3KMP-1.0.0_arm64.msi                                                                                                        | **TBD** Windows on ARM | `arm64`      |
+| _[Windows ARM64 build guide](docs/platform-builds/windows-arm64.md)_ — Store listing pending certification                     | Windows on ARM         | `arm64`      |
 
 
 | Installer                                                                                                                      | Operating System | architecture |
 |--------------------------------------------------------------------------------------------------------------------------------|------------------|--------------|
-| [iperf3KMP-1.0.0.msi](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP-1.0.0.msi)                   | Windows          | `x86_64`     |
+| _[Windows x86_64 build guide](docs/platform-builds/windows-x86_64.md)_ — Store listing pending certification                  | Windows          | `x86_64`     |
 | [iperf3kmp_1.0.0_amd64.deb](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp_1.0.0_amd64.deb)       | Debian/Ubuntu    | `x86_64`     |
 | [iperf3kmp-1.0.0-1.x86_64.rpm](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp-1.0.0-1.x86_64.rpm) | Fedora/RHEL      | `x86_64`     |
 
