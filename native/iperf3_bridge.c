@@ -26,6 +26,9 @@
 #include <time.h>
 #include <getopt.h> /* optind, optreset (BSD/bionic) — see the getopt reset note below */
 #include <signal.h>
+#ifdef __GLIBC__
+#include <stdio_ext.h> /* __fsetlocking — see openPipeForReading() */
+#endif
 
 #include "iperf.h"
 #include "iperf_api.h"
@@ -242,6 +245,24 @@ static void *monitorThreadFunc(void *args_ptr) {
     return NULL;
 }
 
+/* fdopen()s a reader thread's pipe with stdio's internal locking turned off.
+ * glibc's exit() flushes every open FILE -- read streams included -- and
+ * takes each one's lock first, while fgets() holds that same lock for as
+ * long as it sits blocked in read(). If the JVM exits mid-test (Ctrl-C in
+ * the CLI), the iperf3 thread that would write the next line or close the
+ * pipe is parked inside a JNI callback (block_if_vm_exited) and never
+ * does, so exit() waits on the reader's lock forever and the process
+ * hangs. Each of these FILEs is only ever touched by its own reader
+ * thread, so the lock guards nothing; FSETLOCKING_BYCALLER also makes
+ * exit()'s flush-all skip it. Not needed off glibc (macOS/iOS/bionic). */
+static FILE *openPipeForReading(int fd) {
+    FILE *fp = fdopen(fd, "r");
+#ifdef __GLIBC__
+    if (fp != NULL) __fsetlocking(fp, FSETLOCKING_BYCALLER);
+#endif
+    return fp;
+}
+
 /* Reads iperf3's text output from the pipe and forwards each line via
  * on_output — runs on its own thread since iperf_run_client() blocks the
  * calling thread for the test duration. */
@@ -251,7 +272,7 @@ static void *readerThreadFunc(void *args_ptr) {
     if (cb->on_thread_attach) cb->on_thread_attach(cb->ctx);
 
     char buffer[1024];
-    FILE *fp = fdopen(args->pipe_fd, "r");
+    FILE *fp = openPipeForReading(args->pipe_fd);
     while (fp != NULL && fgets(buffer, sizeof(buffer), fp)) {
         if (cb->on_output) cb->on_output(cb->ctx, buffer);
     }
@@ -291,7 +312,7 @@ static void *stderrReaderThreadFunc(void *args_ptr) {
 
     static const char WARNING_PREFIX[] = "warning: ";
     char buffer[1024];
-    FILE *fp = fdopen(args->pipe_fd, "r");
+    FILE *fp = openPipeForReading(args->pipe_fd);
     while (fp != NULL && fgets(buffer, sizeof(buffer), fp)) {
         if (strncmp(buffer, WARNING_PREFIX, sizeof(WARNING_PREFIX) - 1) != 0) {
             continue;

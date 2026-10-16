@@ -8,6 +8,10 @@
 
 set -e
 
+# Every path below (the bind mount, the build context, third_party/) is relative
+# to the repo root, wherever this is invoked from.
+cd "$(dirname "$0")/.." >/dev/null   # quiet even when CDPATH is set
+
 # Don't let interactive stuff interfere with us
 unset PROMPT_COMMAND PS0 PS2 PS3 PS4 PS5
 export PS1="$ "
@@ -85,7 +89,7 @@ if [ "${FREE_KB:-0}" -lt 8000000 ]; then
 fi
 
 echo "=== Building fresh image container layer ==="
-$ENGINE build --no-cache -t "$IMAGE_TAG" -f Dockerfile.rpm .
+$ENGINE build --no-cache -t "$IMAGE_TAG" -f scripts/Dockerfile.rpm .
 
 # third_party/iperf's ./configure output (iperf_config.h/version.h,
 # gitignored) is arch/OS-specific and cached by compileIperf3Jvm as a

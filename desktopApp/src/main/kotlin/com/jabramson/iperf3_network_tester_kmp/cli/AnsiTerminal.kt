@@ -65,7 +65,7 @@ object AnsiTerminal {
         }
     }
 
-    private var width = 80
+    var width = 80
 
     private const val ESC = "\u001B"
 

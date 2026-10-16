@@ -117,7 +117,7 @@ class Iperf3OutputMonitor {
             val id = cleanLine.substring(firstLeftBracket + 1, firstRightBracket).trim()
             val restOfLine = cleanLine.substring(firstRightBracket + 1).split(Regex("[ \\t]+"))
             // Connection-info line (e.g. "[ ID ] Interval...")
-            if (id.lowercase().equals("id")) {
+            if (id.lowercase() == "id") {
                 if (!gathered) {
                     gathered = true
                     currentIperf3RunningState.intervalNumber = 0

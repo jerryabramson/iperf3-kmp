@@ -10,6 +10,9 @@
 #
 #   curl -fsSL https://raw.githubusercontent.com/jerryabramson/iperf3-kmp/master/install.sh | bash
 #
+# Installs a published GitHub release. To build and install *this checkout*
+# instead, use scripts/installMacFromPackage.sh or scripts/installLinuxFromPackage.sh.
+#
 # Downloads the right installer for this OS/arch from the latest GitHub
 # release and installs it (.dmg on macOS, .deb/.rpm on Linux). The GUI and
 # CLI ship in the same package - see CliArgs.kt's usage() for CLI flags once

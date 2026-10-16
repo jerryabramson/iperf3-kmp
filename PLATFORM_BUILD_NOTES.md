@@ -7,8 +7,8 @@ One short checklist per target. Each says what was verified and lists the gotcha
 | Android | any, with the Android SDK | `./gradlew :androidApp:assembleDebug` | [android.md](docs/platform-builds/android.md) |
 | iOS | macOS Apple Silicon + Xcode | Xcode / `xcodebuild` | [ios.md](docs/platform-builds/ios.md) |
 | macOS desktop (`.dmg`) | macOS Apple Silicon | `./gradlew :desktopApp:packageDmg` (use `packageDmgLocal` for local iteration -- see checklist, notarization rate limits) | [macos-arm64.md](docs/platform-builds/macos-arm64.md) |
-| Linux Debian/Ubuntu (`.deb`) x86_64, aarch64 | Linux, or any host with Podman/Docker | `./gradlew :desktopApp:packageDeb` or `./packageDebianFromContainer.sh` | [linux-deb.md](docs/platform-builds/linux-deb.md) |
-| Linux Fedora/RHEL (`.rpm`) x86_64, aarch64 | Linux, or any host with Podman/Docker | `./gradlew :desktopApp:packageRpm` or `./packageRpmFromContainer.sh` | [linux-rpm.md](docs/platform-builds/linux-rpm.md) |
+| Linux Debian/Ubuntu (`.deb`) x86_64, aarch64 | Linux, or any host with Podman/Docker | `./gradlew :desktopApp:packageDeb` or `scripts/packageDebianFromContainer.sh` | [linux-deb.md](docs/platform-builds/linux-deb.md) |
+| Linux Fedora/RHEL (`.rpm`) x86_64, aarch64 | Linux, or any host with Podman/Docker | `./gradlew :desktopApp:packageRpm` or `scripts/packageRpmFromContainer.sh` | [linux-rpm.md](docs/platform-builds/linux-rpm.md) |
 | Windows x86_64 (`.msi`) | Windows x86_64 | `gradlew.bat :desktopApp:packageMsi` | [windows-x86_64.md](docs/platform-builds/windows-x86_64.md) |
 | Windows ARM64 (`.msi`) | Windows ARM64 | `gradlew.bat :desktopApp:packageMsi` | [windows-arm64.md](docs/platform-builds/windows-arm64.md) |
 

@@ -9,7 +9,9 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 - **GUI and CLI** — the desktop build ships both a Compose GUI and a standalone CLI tool.
 - **Native installers** — `.dmg`, `.msi`, `.deb`, and `.rpm` packages for each desktop OS.
 
-<img alt="iPerf3 Network Tester" src="iperf3_test_and_history.png" title="iperf3 Network Tester"/>
+<img alt="iPerf3 Network Tester" src="docs/images/iperf3_test_and_history.png" title="iperf3 Network Tester"/>
+
+**Documentation:** see [docs/README.md](docs/README.md) for an index of the architecture, per-platform build, and research docs.
 
 ## Platforms Supported
 1. Android<br>
@@ -271,7 +273,7 @@ per-platform install layout:
 
 #### Example Execution
 
-<img alt="command-line execution" src="./command-line images.png" title="Command-line execution"/>
+<img alt="command-line execution" src="docs/images/command-line%20images.png" title="Command-line execution"/>
 
 * See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag list.
 * ANSI output works out of the box on Windows too, and falls back to plain text (no escape codes) when `TERM` looks like a dumb terminal, so redirected-to-a-file and CI/log-capture output stays readable.
@@ -290,8 +292,8 @@ per-platform install layout:
 | Debian/Ubuntu Linux x86_64                                                                                                 | ./gradlew :desktopApp:packageDeb   |
 | Fedora/Red Hat Linux x86_64 *                                                                                              | ./gradlew :desktopApp:packageRpm   |
 | Fedora/Red Hat aarch64 *                                                                                                   | ./gradlew :desktopApp:packageRpm   |
-| Debian/Ubuntu Linux x86_64 or aarch64 - on a non-Debian host (Fedora/RHEL, or macOS with Docker Desktop)                   | packageDebianFromContainer.sh      |
-| Fedora/RHEL x86_64 or aarch64 - on a non-RPM host (Debian/Ubuntu, or macOS with Docker Desktop)                            | packageRpmFromContainer.sh         |
+| Debian/Ubuntu Linux x86_64 or aarch64 - on a non-Debian host (Fedora/RHEL, or macOS with Docker Desktop)                   | scripts/packageDebianFromContainer.sh |
+| Fedora/RHEL x86_64 or aarch64 - on a non-RPM host (Debian/Ubuntu, or macOS with Docker Desktop)                            | scripts/packageRpmFromContainer.sh    |
 | Windows x86_64                                                                                                             | gradlew.bat :desktopApp:packageMsi |
 | Windows ARM64 (native ARM64 JVM; bundled `iperf3.exe` is x86_64 under Prism emulation — see WINDOWS_ARM64_IPERF3_PLAN.md)  | gradlew.bat :desktopApp:packageMsi |
 

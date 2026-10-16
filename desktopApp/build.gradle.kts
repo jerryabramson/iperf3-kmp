@@ -108,6 +108,11 @@ val macBundleId = providers.gradleProperty("desktopApp.macBundleId")
 compose.desktop {
     application {
         mainClass = "com.jabramson.iperf3_network_tester_kmp.MainKt"
+        // :shared's NativeIperfBridge/NativeFormatterBridge System.load() their
+        // JNI libraries. JDK 24+ (JEP 472) warns on that from the unnamed module,
+        // and a future JDK will block it. Applies to both :desktopApp:run and the
+        // packaged launcher (jpackage writes it into the app's .cfg).
+        jvmArgs += "--enable-native-access=ALL-UNNAMED"
 
         nativeDistributions {
             appResourcesRootDir.set(layout.buildDirectory.dir("appResources"))

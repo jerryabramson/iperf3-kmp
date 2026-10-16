@@ -61,6 +61,59 @@ object CliRunner {
      * over the hook's final message. */
     private var shuttingDown = false
 
+    /** Column the tick/bracket block always starts at, regardless of the
+     * preceding label's width -- fixed via [AnsiTerminal.gotoColumn] rather
+     * than left-padding with spaces, the same technique
+     * `MonitorIPerf3Output`'s own `leftColumnMarker`/`columnSet` jumps use,
+     * so the track lines up the same whether the label is "Running "or
+     * "Skipping" or the live line has no label yet at all. */
+    private const val TRACK_COLUMN = 30
+
+    /** Widest of "Skipping" "STALLED" "Running" "Starting".
+     * Every label is padded out to this with [statusLabel].
+     * A shorter label drawn over a longer one (both via absolute
+     * [AnsiTerminal.gotoColumn] positioning.
+     * This avoids the need for a clear-to-EOL.
+     * */
+    private const val LABEL_WIDTH = 12
+
+    /**
+     * The absolute value of the spacing between the percentage output
+     * and the tick/bracket.
+     */
+    private const val PERCENTAGE_COLUMN_OFFSET = 4
+
+    /** How many quoted argv tokens to print per line in the header -- enough
+     * that a typical token ("--connect-timeout", a hostname) still keeps
+     * each line comfortably under 80 columns, the one terminal width that's
+     * safe to assume with no way to query the caller's actual one. */
+    private const val ARGS_PER_LINE = 5
+
+    /** Minimum real time between status-line redrawing. The native bridge's
+     * `onTime` ticks far faster than this (observed: roughly every 10-15ms) --
+     * nobody can perceive updates faster than this anyway, and redrawing on
+     * every single tick is a lot of wasted terminal I/O for a long-running test. */
+    private const val STATUS_REDRAW_INTERVAL_MS = 50L
+
+    /**
+     * Fixed columns for printStatRow(), the same `gotoColumn`-over-
+     * space-padding technique [TRACK_COLUMN] uses -- padding with a literal
+     * string of spaces only lines up by coincidence (it assumes every label
+     * renders at exactly the width its character count suggests, which
+     * isn't guaranteed once escape codes and variable terminal fonts are
+     * involved); an absolute column jump doesn't depend on that. */
+    private const val STAT_LABEL_COLUMN = 18
+    private const val STAT_VALUE_COLUMN = 30
+
+    /**
+     * The left column marker for the progress bar is fixed, but the
+     * right column marker is dynamic based on the duration of the test
+     */
+    private const val LEFT_COLUMN_MARKER: Int = TRACK_COLUMN + 2
+    private const val RIGHT_OUTPUT_LINE_SPACING = 2
+    private var rightColumnMarker: Int = 69
+    private var formattedOutputLineMarker: Int = LEFT_COLUMN_MARKER + RIGHT_OUTPUT_LINE_SPACING + 1
+
     /** The only place this module appends a line break -- everywhere else
      * writes to stdout/stderr go through this (or [AnsiTerminal.clearLine]'s
      * own explicit `\r` for in-place status-line redraws), never `println()`,
@@ -95,7 +148,13 @@ object CliRunner {
 
     private fun runCli(args: Array<String>): Int {
         AnsiTerminal.setColumnWidth()
-            val options = CliArgs.parse(args)
+        val terminalWidth = AnsiTerminal.width
+        if (terminalWidth < 80) {
+            writeLine("${AnsiTerminal.Color.RED.fg()}Terminal is too narrow${AnsiTerminal.reset()}!  The minimum required width is 80 columns.")
+            return -1
+        }
+
+        val options = CliArgs.parse(args)
 
         if (options.help) {
             writeLine(CliArgs.usage())
@@ -183,11 +242,6 @@ object CliRunner {
         return if (failures == 0) 0 else 1
     }
 
-    /** Minimum real time between status-line redrawing. The native bridge's
-     * `onTime` ticks far faster than this (observed: roughly every 10-15ms) --
-     * nobody can perceive updates faster than this anyway, and redrawing on
-     * every single tick is a lot of wasted terminal I/O for a long-running test. */
-    private const val STATUS_REDRAW_INTERVAL_MS = 50L
 
     /** Formats one message the shared parser added to [Iperf3RunningState.messages]
      * for terminal display -- a "Bridge" status line (e.g. "Test completed
@@ -195,7 +249,9 @@ object CliRunner {
     private fun formatMessage(message: String): String =
         if (message.contains("Bridge")) "[" + AnsiTerminal.box(AnsiTerminal.Color.BLUE, message) + "]" else message
 
-    /** @param startedAt when this run began -- [runLoop] passes the same time
+    /**
+     * Main runtime loop for command-line execution
+     * @param startedAt when this run began -- [runLoop] passes the same time
      * its loop header shows, so the final summary table matches it. */
     private fun runTest(input: UiInputData, startedAt: Date = Date()): ResultStatistics {
 
@@ -209,6 +265,7 @@ object CliRunner {
         var lastOmittedCount = 0L
         var firstBridge = true
         val startTime = System.currentTimeMillis()
+        var percentageComplete: Long = 0.toLong()
         // Once the live single-row progress redrawing starts, a message line can no
         // longer be writeLine()'d into the scroll stream the way it could during
         // setup -- scrolling the terminal invalidates the absolute-column
@@ -222,10 +279,18 @@ object CliRunner {
         var liveRowStarted = false
         val deferredMessages = mutableListOf<String>()
         val deferredErrorMessages = mutableListOf<String>()
-
+        val terminalWidth = AnsiTerminal.width
+        if (terminalWidth < 80) {
+            writeLine("${AnsiTerminal.Color.RED.fg()}Terminal is too narrow${AnsiTerminal.reset()} because it was too narrow !!")
+            return ResultStatistics(startTimeStamp = startedAt, endTimeStamp = Date(), iperf3ReturnCode = -55)
+        }
+        val maxTrackSize = terminalWidth - 65 // based on 80 column width display
+        val maximumProgressBarSize = input.durationSecs.coerceAtMost(maxTrackSize).toLong()
 
         val executor = Iperf3Executor(
-            updateProgress = { _, _ -> /* status line is driven by updateElapsedTime below instead */ },
+            updateProgress = { _, percentComplete ->
+                percentageComplete = percentComplete
+            },
             updateElapsedTime = {
                 synchronized(lock) {
                     if (shuttingDown) return@synchronized
@@ -234,7 +299,19 @@ object CliRunner {
                         liveRowStarted = true
                         tickIndex++
                         val spinner = tick[tickIndex.mod(tick.size)]
-                        write("${AnsiTerminal.gotoColumn(TRACK_COLUMN)}$spinner${getStatusLabel(elapsedMillis = now - startTime, state =  lastState)}${gotoRestingColumn(input, lastState)}")
+                        write("${AnsiTerminal.gotoColumn(TRACK_COLUMN)}$spinner" +
+                                AnsiTerminal.Color.YELLOW.fg() +
+                                AnsiTerminal.gotoColumn(TRACK_COLUMN - PERCENTAGE_COLUMN_OFFSET) +
+                                "$percentageComplete%" +
+                                AnsiTerminal.reset() +
+                                getStatusLabel(elapsedMillis = now - startTime, state =  lastState) +
+                                gotoRestingColumn(
+                                    lastState =  lastState,
+                                    lastState?.intervalNumber ?: 0,
+                                    maxSize = maximumProgressBarSize,
+                                    isReverse = input.isReverse
+                                )
+                        )
                         System.out.flush()
                         lastStatusRedrawAt = now
                     }
@@ -246,9 +323,17 @@ object CliRunner {
                     lastState = state
 
                     if (!connectionLinePrinted && state.localHost.isNotEmpty() && state.remoteHost.isNotEmpty()) {
-                        write(AnsiTerminal.clearLine() + gotoRestingColumn(input, lastState))
-                        System.out.flush()
                         printConnectionLine(state)
+                        write(
+                            AnsiTerminal.clearLine() +
+                                    gotoRestingColumn(
+                                        lastState = lastState,
+                                        state.intervalNumber,
+                                        maxSize = maximumProgressBarSize,
+                                        isReverse = input.isReverse
+                                    )
+                        )
+                        System.out.flush()
                         connectionLinePrinted = true
                     }
 
@@ -295,7 +380,7 @@ object CliRunner {
                             if (input.isDebugging) {
                                 writeLine("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
                             }
-                            printIntervalLine(input, state, elapsedMillis =  (System.currentTimeMillis() - startTime))
+                            printIntervalLine(input, maximumProgressBarSize, state = state, elapsedMillis =  (System.currentTimeMillis() - startTime))
                             lastInterval = state.intervalNumber.toInt()
                             lastOmittedCount = state.totalOmitted
                         }
@@ -365,11 +450,6 @@ object CliRunner {
         add(input.skip.toString())
     }
 
-    /** How many quoted argv tokens to print per line in the header -- enough
-     * that a typical token ("--connect-timeout", a hostname) still keeps
-     * each line comfortably under 80 columns, the one terminal width that's
-     * safe to assume with no way to query the caller's actual one. */
-    private const val ARGS_PER_LINE = 5
 
     private fun printHeader(input: UiInputData) {
         val timestamp = AnsiTerminal.box(AnsiTerminal.Color.GREEN, Date().toString())
@@ -401,33 +481,19 @@ object CliRunner {
         )
     }
 
-    /** Column the tick/bracket block always starts at, regardless of the
-     * preceding label's width -- fixed via [AnsiTerminal.gotoColumn] rather
-     * than left-padding with spaces, the same technique
-     * `MonitorIPerf3Output`'s own `leftColumnMarker`/`columnSet` jumps use,
-     * so the track lines up the same whether the label is "Running "or
-     * "Skipping" or the live line has no label yet at all. */
-    private const val TRACK_COLUMN = 34
 
-    /** Widest of "Skipping" "STALLED" "Running" "Starting".
-     * Every label is padded out to this with [statusLabel].
-     * A shorter label drawn over a longer one (both via absolute
-     * [AnsiTerminal.gotoColumn] positioning.
-     * This avoids the need for a clear-to-EOL.
-     * */
-    private const val LABEL_WIDTH = 12
 
     private fun statusLabel(omitted: Boolean, stalled: Boolean): String =
         (if (omitted) "  Skipping" else if (stalled) "  STALLED" else "  Running").padEnd(LABEL_WIDTH)
 
     private fun getStatusLabel(elapsedMillis: Long, state: Iperf3RunningState?): String {
         val sb = StringBuilder()
-        val label =
-            if (state == null || (!state.omitted && !state.stalled && state.intervalNumber < 0)) "  Starting".padEnd(LABEL_WIDTH)
+        val starting = (state == null || (!state.omitted && !state.stalled && state.intervalNumber < 0))
+        val label = if (starting) "  Starting".padEnd(LABEL_WIDTH)
             else statusLabel(omitted = state.omitted, stalled = state.stalled)
         sb.append(AnsiTerminal.gotoColumn(1))
         val color =
-            if (state == null) AnsiTerminal.Color.PURPLE.fg()
+            if (starting) AnsiTerminal.Color.PURPLE.fg()
             else if (state.stalled) AnsiTerminal.Color.RED.reverse()
             else if (state.omitted) AnsiTerminal.Color.YELLOW.fg()
             else AnsiTerminal.Color.GREY.bold()
@@ -453,25 +519,17 @@ object CliRunner {
      * label and the bracket (matching the reference's own
      * `Skipping 1.00-2.00   + (...)` layout), not at the start of the line.
      */
-    private fun printIntervalLine(input: UiInputData, state: Iperf3RunningState, elapsedMillis: Long) {
+    private fun printIntervalLine(input: UiInputData, maxSize: Long, state: Iperf3RunningState, elapsedMillis: Long) {
         val trackColor = if (state.omitted || state.stalled) AnsiTerminal.Color.RED else AnsiTerminal.Color.GREEN
-        write(newProgressTrack(input, elapsedMillis, trackColor, state))
+        write(
+            newProgressTrack(input, maxSize = maxSize, elapsedMilliSeconds = elapsedMillis, colorIn = trackColor, state = state)
+                    + gotoRestingColumn(state, state.intervalNumber, maxSize, input.isReverse)
+        )
         System.out.flush()
     }
 
 
 
-    /**
-     * Fixed columns for the stat block below, the same `gotoColumn`-over-
-     * space-padding technique [TRACK_COLUMN] uses -- padding with a literal
-     * string of spaces only lines up by coincidence (it assumes every label
-     * renders at exactly the width its character count suggests, which
-     * isn't guaranteed once escape codes and variable terminal fonts are
-     * involved); an absolute column jump doesn't depend on that. */
-    private const val STAT_LABEL_COLUMN = 18
-    private const val STAT_VALUE_COLUMN = 30
-
-    private fun formatStat(data: UnitConvertedData): String = return data.getValue(false)
 
     /**
      * Prints a formatted statistical row with a labeled value and its unit, applying color customizations.
@@ -491,7 +549,7 @@ object CliRunner {
     }
 
     private fun colorizeStat(valueColor: String, data: UnitConvertedData): String {
-        return valueColor + formatStat(data) + AnsiTerminal.reset() + " " +
+        return valueColor + data.getValue() + AnsiTerminal.reset() + " " +
         AnsiTerminal.bold() + data.getUnit() + AnsiTerminal.reset()
     }
 
@@ -523,26 +581,22 @@ object CliRunner {
         writeLine("Return Code: ${rcColor.fg()}${"%03d".format(returnCode)}${AnsiTerminal.reset()}$avgSuffix")
     }
 
-    private const val LEFT_COLUMN_MARKER: Int = 38
-    private var RIGHT_COLUMN_MARKER: Int = 80
 
     /**
      * Calculates the resting column position in the terminal based on the provided input data and the current interval state,
      * and returns the corresponding ANSI escape sequence to move the cursor to that position.
+     * @param lastState: IperfRunningState
      *
-     * @param input An instance of [UiInputData] containing user-defined parameters, such as the direction of the test (`isReverse`).
      * @return A [String] containing the ANSI escape sequence to move the cursor to the computed resting column.
      */
-    private fun gotoRestingColumn(input: UiInputData?, lastState: Iperf3RunningState?): String {
+    private fun gotoRestingColumn(lastState: Iperf3RunningState?, currentInterval: Long, maxSize: Long, isReverse: Boolean): String {
         val sb = StringBuilder()
-        val left = LEFT_COLUMN_MARKER
-        val right = left + (input?.durationSecs ?: 0)
-        if (lastState == null || lastState.stalled || lastState.omitted) {
-            val restingColumn = if (input?.isReverse ?: false) right else left - 1
+        val right = (LEFT_COLUMN_MARKER + maxSize).toInt()
+        if (lastState == null || lastState.stalled || lastState.omitted || currentInterval < 0) {
+            val restingColumn = if (isReverse) right  else LEFT_COLUMN_MARKER
             sb.append(AnsiTerminal.gotoColumn(restingColumn + 1))
         } else {
-            val intVal = if (lastState.intervalNumber.toInt() >= 0) lastState.intervalNumber.toInt() else  0
-            val restingColumn = if (input?.isReverse ?: false) right - intVal - 2 else left + intVal + 1
+            val restingColumn = if (!isReverse)  ((LEFT_COLUMN_MARKER + ((currentInterval % maxSize).toInt())) + 2) else (right - (currentInterval % maxSize).toInt() - 2)
             sb.append(AnsiTerminal.gotoColumn(restingColumn + 1))
         }
         return sb.toString()
@@ -553,6 +607,22 @@ object CliRunner {
      * an iperf3 network performance test. The progress track includes visual indicators
      * for the test's current state, elapsed time, and relevant output data.
      *
+     * Since the duration of a run is an argument that can be passed at the command-line, it is very
+     * likely that the progress bar will be too wide for a terminal window.
+     *
+     * We need two options for the size of the track bar, which then result in the floating track
+     * restarting at the beginning.
+     *
+     * since we now have a percentage output, that serves as the real gauge on test execution.
+     *
+     * The LEFT_COLUMN_MARKER is fixed (currently at 38). The rightColumnMarker is dynamically determined
+     * with this formula below:
+     *     rightColumnMarker = LEFT_COLUMN_MARKER + input.durationSecs + 1
+     *
+     * We need to take into account terminal width (which we now have access to, or fallback to 80).
+     *
+     * However, we also have the output from iperf3 set at
+     *
      * @param input The user-provided configuration parameters encapsulated in a [UiInputData] object.
      * @param elapsedMilliSeconds The elapsed time in milliseconds since the start of the test.
      * @param color The [AnsiTerminal.Color] used to style the progress track's visual components.
@@ -561,10 +631,14 @@ object CliRunner {
      */
     private fun newProgressTrack(input: UiInputData,
                                  elapsedMilliSeconds: Long,
-                                 color: AnsiTerminal.Color,
+                                 maxSize: Long,
+                                 colorIn: AnsiTerminal.Color,
                                  state: Iperf3RunningState) : String
     {
+
         if (input.isDebugging) return ""
+        var color = colorIn
+
         // intervalNumber is always -1 for an omitted interval, so "<= 0" alone
         // silently dropped every omitted line too, not just an uninitialized
         // state -- only bail out when this is neither a real interval nor an
@@ -577,16 +651,24 @@ object CliRunner {
         // +skip -- adding the omit window here instead inflates the right edge by
         // the omit window's size (invisible at -O 1, since 1 happens to equal the
         // intended buffer, but very visible at e.g. -O 5).
-        RIGHT_COLUMN_MARKER = LEFT_COLUMN_MARKER + input.durationSecs + 1
+        rightColumnMarker = (LEFT_COLUMN_MARKER + maxSize + 1).toInt()
+        formattedOutputLineMarker = rightColumnMarker + RIGHT_OUTPUT_LINE_SPACING
         val sb = StringBuilder()
         var leftBracket = "["
         var rightBracket = "]"
+        val normalizedInterval = if (state.intervalNumber < 0) 0 else state.intervalNumber
 
-        var column1: Int = LEFT_COLUMN_MARKER + state.intervalNumber.toInt()
+        if (normalizedInterval == maxSize) {
+            sb.append(AnsiTerminal.clearLine())
+            color = AnsiTerminal.Color.PURPLE
+        }
+
+        val intervalTrack = normalizedInterval % maxSize
+        var column1: Int = LEFT_COLUMN_MARKER + intervalTrack.toInt() + 1
         var arrow = ARROW_RIGHT
         if (input.isReverse) {
             leftBracket = "("
-            column1 = RIGHT_COLUMN_MARKER - state.intervalNumber.toInt()
+            column1 = rightColumnMarker - intervalTrack.toInt()
             arrow = ARROW_LEFT
 
         } else {
@@ -600,20 +682,20 @@ object CliRunner {
         // just the brackets by +1 put them one column off from where the arrow's
         // own math assumes the track edges are.
         if (!input.isReverse) {
-            sb.append(AnsiTerminal.gotoColumn(LEFT_COLUMN_MARKER - 1))
+            sb.append(AnsiTerminal.gotoColumn(LEFT_COLUMN_MARKER))
             sb.append(leftBracket)
-            sb.append(AnsiTerminal.gotoColumn(RIGHT_COLUMN_MARKER - 1))
+            sb.append(AnsiTerminal.gotoColumn(rightColumnMarker - 1))
             sb.append(rightBracket)
         } else {
-            sb.append(AnsiTerminal.gotoColumn(LEFT_COLUMN_MARKER + 1))
+            sb.append(AnsiTerminal.gotoColumn(LEFT_COLUMN_MARKER))
             sb.append(leftBracket)
-            sb.append(AnsiTerminal.gotoColumn(RIGHT_COLUMN_MARKER+1))
+            sb.append(AnsiTerminal.gotoColumn(rightColumnMarker + 1))
             sb.append(rightBracket)
         }
 
 
         if (!state.omitted) {
-            val c = if (!state.stalled) color else AnsiTerminal.Color.RED
+            val c = if (!state.stalled) color else  AnsiTerminal.Color.RED
             // Fill every cell already passed, not just the one next to the arrow --
             // explicit each redrawing (not relying on earlier draws' cells persisting
             // on screen untouched), so the bar reads as "[-->   ]" growing to
@@ -628,19 +710,27 @@ object CliRunner {
                 sb.append(" ")
                 sb.append(AnsiTerminal.reset())
             } else {
-                sb.append(AnsiTerminal.gotoColumn(column1))
-                sb.append(c.reverse())
-                sb.append(" ")
-                sb.append(AnsiTerminal.reset())
-                sb.append(AnsiTerminal.gotoColumn(column1+1))
-                sb.append(c.fg())
-                sb.append(AnsiTerminal.bold())
-                sb.append(arrow)
-                sb.append(AnsiTerminal.reset())
+                if (column1 < rightColumnMarker - 1) {
+                    sb.append(AnsiTerminal.gotoColumn(column1))
+                    sb.append(c.reverse())
+                    sb.append(" ")
+                    sb.append(AnsiTerminal.reset())
+                    sb.append(AnsiTerminal.gotoColumn(column1 + 1))
+                    sb.append(c.fg())
+                    sb.append(AnsiTerminal.bold())
+                    sb.append(arrow)
+                    sb.append(AnsiTerminal.reset())
+                }
             }
         }
-        sb.append(AnsiTerminal.gotoColumn(RIGHT_COLUMN_MARKER + 10 + 1))
-        sb.append("[" + AnsiTerminal.box(AnsiTerminal.Color.CYAN, state.formattedOutputLine.trim()) + "]")
+        sb.append(AnsiTerminal.gotoColumn(formattedOutputLineMarker))
+        sb.append("[")
+        sb.append(if (state.intervalNumber > 0) AnsiTerminal.Color.BLUE.reverse() else AnsiTerminal.Color.RED.reverse())
+        sb.append("Interval ")
+        sb.append("%04d".format(state.intervalNumber))
+        sb.append(AnsiTerminal.reset())
+        sb.append(AnsiTerminal.box(AnsiTerminal.Color.CYAN," ${state.currentBandWidth}"))
+        sb.append("]")
         sb.append(getStatusLabel(elapsedMillis = elapsedMilliSeconds, state =  state))
         return sb.toString()
     }

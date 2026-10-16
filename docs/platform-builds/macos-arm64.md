@@ -13,6 +13,7 @@
 ./gradlew :desktopApp:packageDmg             # desktopApp/build/compose/binaries/main/dmg/iperf3KMP-1.0.0.dmg
 ./gradlew :desktopApp:packageDmgLocal        # same, but skips notarization -- see Gotchas below
 ./gradlew :desktopApp:installDmg             # packageDmgLocal, then install the .app into /Applications via hdiutil (no Finder window)
+scripts/installMacFromPackage.sh             # same as installDmg, runnable from any directory
 ```
 
 ## Signing and notarization (your own Apple Developer ID)

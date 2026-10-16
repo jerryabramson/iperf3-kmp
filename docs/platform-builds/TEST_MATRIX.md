@@ -104,7 +104,7 @@ not as the final evidence for x86_64.
 The app's own native libraries take their glibc requirement from the machine that built them. Found on 2026-09-23:
 `libiperf3native.so` built on Fedora 44 or Ubuntu 26.04 (glibc 2.43, GCC 15+/Clang 21+ default to C23) references
 `__isoc23_strtol@GLIBC_2.38`, so **those packages will not load on glibc older than 2.38**: Ubuntu 22.04 (2.35), Debian 12 (2.36), RHEL/Rocky 9 (2.34).
-Debian 13 (2.41) and Ubuntu 24.04 (2.39) are fine. `Dockerfile.deb` builds on `ubuntu:latest` and `Dockerfile.rpm` on
+Debian 13 (2.41) and Ubuntu 24.04 (2.39) are fine. `scripts/Dockerfile.deb` builds on `ubuntu:latest` and `scripts/Dockerfile.rpm` on
 `fedora:latest`, both moving targets, so the baseline changes silently.
 
 **Decided (2026-09-23):** supported baseline is **Ubuntu 22.04, Debian 12, RHEL 9 family, Fedora 42+**. The container scripts build

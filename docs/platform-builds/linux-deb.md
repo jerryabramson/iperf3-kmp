@@ -13,7 +13,7 @@ Native, on a Debian/Ubuntu host:
 ```
 From any other host (other Linux family, or macOS with Docker Desktop). Builds in a container matching the host CPU; auto-detects Podman or Docker:
 ```shell
-./packageDebianFromContainer.sh
+scripts/packageDebianFromContainer.sh
 ```
 Output: `desktopApp/build/compose/binaries/main/deb/iperf3kmp_1.0.0_amd64.deb (or _arm64.deb)`
 

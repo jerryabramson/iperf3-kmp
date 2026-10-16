@@ -411,12 +411,8 @@ class Iperf3RunViewModel() : ViewModel() {
      * -- there is no user-facing Save button anymore. Safe to call more than
      * once per run: no-ops if already saved, or if there's nothing meaningful
      * to save yet (e.g. a run with zero samples).
-     * See the following documents for the complex requirements to support
-     * roomDB on KMP for all required platforms:
-     *    * <git_root>/
-     *         CODELAB_ROOMDB.md
-     *         ROOMDBPLAN.md
-     *         ROOMDBPLAN.docx
+     * See CLAUDE.md's "Room + KMP SQLite persistence" section for the
+     * complex requirements to support roomDB on KMP for all required platforms.
      */
     fun saveResult(time: Double) {
         if (_uiExecutionDataStateFlow.value.isSaved) return
@@ -759,9 +755,9 @@ class Iperf3RunViewModel() : ViewModel() {
      * Called at the start of the composable view.
      * We No longer use this technique with KMP+roomDB+sqlite.
      *
-     * See the following document/section for details:
-     *    <git_root>/ROOMDBPLAN.md
-     *        3. Android Context — this app has no DI container to lean on
+     * Room's Android driver gets its Context from AndroidAppContextHolder
+     * instead (set once in MainActivity.onCreate()) -- this app has no DI
+     * container to lean on. See CLAUDE.md's "Room + KMP SQLite persistence".
      */
     fun setContext(context: String) {  //Context) {
         _uiExecutionDataStateFlow.update {
