@@ -205,8 +205,11 @@ class Iperf3OutputMonitor {
                                         // samples counted below. Counting it too made totalSamples
                                         // read one higher than the actual number of 1-second
                                         // intervals (e.g. 11 for --time 10).
-                                        currentIperf3RunningState.currentBandWidth = UnitConvertedData(bitRateValue, bitRateString)
-                                        currentIperf3RunningState.currentAvg = UnitConvertedData(bitRateValue, bitRateUnitString)
+                                        // currentAvg deliberately stays the running mean of those
+                                        // samples: overwriting it with this row's whole-test rate
+                                        // mixed two different measures -- Avg could exceed Max --
+                                        // and disagreed with avgRawBitsPerSec, which is what gets saved.
+                                        currentIperf3RunningState.currentBandWidth = UnitConvertedData(bitRateValue, bitRateUnitString)
                                     }
                                     timeLabel = sendOrReceive
                                 }

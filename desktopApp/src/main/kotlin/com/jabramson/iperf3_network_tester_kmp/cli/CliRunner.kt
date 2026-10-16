@@ -261,7 +261,9 @@ object CliRunner {
         var lastStatusRedrawAt = 0L
         var connectionLinePrinted = false
         var lastMessageCount = 0
-        var lastInterval = 0
+        // -1, not 0: interval 0 ("0.00-1.00") is a real interval and must pass
+        // the "> lastInterval" check below (an omit period already leaves it at -1).
+        var lastInterval = -1
         var lastOmittedCount = 0L
         var firstBridge = true
         val startTime = System.currentTimeMillis()
