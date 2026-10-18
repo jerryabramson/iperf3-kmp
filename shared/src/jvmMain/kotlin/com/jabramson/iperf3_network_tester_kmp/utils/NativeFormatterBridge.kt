@@ -53,6 +53,10 @@ internal object NativeFormatterBridge {
         System.load(tempFile.absolutePath)
     }
 
+    /** Forces the `init` block above to run, for other natives built into the
+     * same library (see [WindowsConsole]). */
+    fun ensureLoaded() {}
+
     @JvmStatic
     external fun nativeFormat(format: String, args: Array<Any?>): String
 }

@@ -218,6 +218,14 @@ static void *monitorThreadFunc(void *args_ptr) {
             sleep_time.tv_nsec = 10L * 1000L * 1000L;
 
             for (int i = 0; i < 100; i++) {
+                /* Re-check every tick, not just once per second: a run that
+                 * fails fast (e.g. "Connection refused") would otherwise keep
+                 * reporting elapsed time for up to a second after it ended,
+                 * re-showing the elapsed-time row after the error and holding
+                 * up iperf3_bridge_native_iperf3()'s pthread_join (so the UI
+                 * kept showing Stop). global_test can't be freed here: that
+                 * only happens after this thread is joined. */
+                if (global_test->done) break;
                 struct timespec now_ts;
                 clock_gettime(CLOCK_MONOTONIC, &now_ts);
                 int64_t elapsed_ns = (int64_t) (now_ts.tv_sec - start_ts.tv_sec) * 1000000000LL

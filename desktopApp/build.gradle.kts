@@ -118,6 +118,19 @@ compose.desktop {
             appResourcesRootDir.set(layout.buildDirectory.dir("appResources"))
             targetFormats(TargetFormat.Dmg, TargetFormat.Msi, TargetFormat.Deb, TargetFormat.Rpm)
             packageName = "iperf3KMP"
+            // Publisher everywhere jpackage records one: Windows' Settings -> Apps
+            // "Publisher" (was "Unknown"), the .rpm Vendor, and the name in the .deb
+            // Maintainer line.
+            vendor = "Jerold Abramson"
+            // One line (Debian wants it under 80 chars): the .deb Description's
+            // first line, the .rpm Summary, the .msi description. The .deb's long
+            // description and Homepage are added by patchDebDesktopMenuScripts
+            // below, since Compose has no setting for either.
+            description = "Network bandwidth tester using iperf3, with GUI and CLI"
+            copyright = "Copyright (c) 2026 Jerold Abramson"
+            // No licenseFile: jpackage turns it into a license-agreement step in
+            // the .msi and .dmg, and a .dmg with one can stall `hdiutil attach`
+            // (installDmg) waiting for agreement.
             // Read from the repo-root VERSION file (see root build.gradle.kts),
             // not hardcoded here -- keeps this in sync with Android/iOS/the CLI.
             packageVersion = rootProject.extra["appVersion"] as String
@@ -137,6 +150,27 @@ compose.desktop {
             }
             windows {
                 iconFile.set(project.file("src/main/resources/app-icon.ico"))
+                // Install into the user's own %LOCALAPPDATA% instead of Program
+                // Files, so the .msi never needs elevation: no UAC prompt, which for
+                // this unsigned installer read "an unknown publisher ... make changes
+                // to your device?". Trade-off: each Windows user installs it separately.
+                perUserInstall = true
+                // Start-menu entry, created by the installer and removed on uninstall
+                // (without this the .msi creates no shortcut at all). jpackage always
+                // puts it in a folder; it defaults to the vendor name.
+                menu = true
+                menuGroup = "Network Tools"
+                // Windows Installer's product-family ID: a newer .msi with the same
+                // value upgrades the installed one in place. Pinned to the value
+                // jpackage derived for the 1.0.1 builds before `vendor` was set (it
+                // derives it from app details, so setting the vendor could change it).
+                // Never change it.
+                upgradeUuid = "C545EEDC-A83A-318D-9CBB-A7F2B8153C74"
+                // Console-subsystem launcher, so CLI mode (`iperf3KMP <server> ...`)
+                // prints to the terminal and the shell waits for it. A GUI launch
+                // gets rid of the console at startup (WindowsConsole.detachForGui()
+                // in main.kt), leaving only a brief flash.
+                console = true
             }
             linux {
                 iconFile.set(project.file("src/main/resources/app-icon.png"))
@@ -148,6 +182,16 @@ compose.desktop {
                 // a valid freedesktop.org main category - shows up under
                 // Accessories/Utilities rather than Internet ("Network").
                 menuGroup = "Utility"
+                // Email half of the .deb "Maintainer: <vendor> <email>" line (was
+                // "Unknown <Unknown>"). GitHub noreply address, as the commits use:
+                // shipped in a public package, a personal address would only attract
+                // spam. Mail to it isn't delivered; the README points to GitHub
+                // Issues for support. The .rpm has no email field (Vendor only).
+                debMaintainer = "21062491+jerryabramson@users.noreply.github.com"
+                // .deb Section and .rpm Group, as Debian's own iperf3 package uses
+                // (was the jpackage default "misc").
+                appCategory = "net"
+                rpmLicenseType = "BSD-3-Clause"
             }
         }
     }
@@ -220,6 +264,30 @@ val patchDebDesktopMenuScripts = tasks.register("patchDebDesktopMenuScripts") {
                 "$extractDir/DEBIAN/{postinst,prerm} - jpackage's template may have " +
                 "changed, review this task."
         }
+
+        // Package metadata Compose/jpackage can't set: a Homepage field and a
+        // long description under the one-line `description`, in Debian's format
+        // (continuation lines start with a space; " ." is a blank line).
+        val control = extractDir.resolve("DEBIAN/control")
+        // Blank lines dropped: jpackage's control ends with one, and anything after
+        // a blank line is a second package stanza to dpkg-deb ("several package
+        // info entries found").
+        val controlLines = control.readLines().filterNot { it.startsWith("Homepage:") || it.isBlank() }
+        val descriptionAt = controlLines.indexOfFirst { it.startsWith("Description:") }
+        check(descriptionAt >= 0) { "No Description: line in $control - review this task." }
+        val longDescription = listOf(
+            " iperf3KMP runs real iperf3 client tests (the iperf3 3.21 library, built",
+            " in) and shows live throughput, each interval's result, and summary",
+            " statistics: average, minimum, maximum, median and standard deviation.",
+            " .",
+            " The desktop app has a GUI with saved test history and CSV export, and a",
+            " command-line mode for terminals and scripts. Tests need a reachable",
+            " iperf3 server."
+        )
+        val newControl = controlLines.take(descriptionAt + 1) + longDescription +
+            controlLines.drop(descriptionAt + 1).dropWhile { it.startsWith(" ") } +
+            "Homepage: https://github.com/jerryabramson/iperf3-kmp"
+        control.writeText(newControl.joinToString("\n", postfix = "\n"))
 
         debFile.delete()
         run("fakeroot", "dpkg-deb", "-b", extractDir.absolutePath, debFile.absolutePath)

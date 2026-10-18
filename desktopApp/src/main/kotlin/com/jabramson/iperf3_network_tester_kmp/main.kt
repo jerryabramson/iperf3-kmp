@@ -13,6 +13,7 @@ import androidx.compose.ui.window.Window
 
 import androidx.compose.ui.window.application
 import com.jabramson.iperf3_network_tester_kmp.cli.CliRunner
+import com.jabramson.iperf3_network_tester_kmp.utils.WindowsConsole
 import iperf3kmp.shared.generated.resources.Res
 import iperf3kmp.shared.generated.resources.app_icon
 import org.jetbrains.compose.resources.painterResource
@@ -55,8 +56,14 @@ import java.awt.Dimension
  */
 fun main(args: Array<String>) {
     if (args.isNotEmpty()) {
+        // Windows: UTF-8 + ANSI console, or rules/glyphs print as '?'. No-op elsewhere.
+        WindowsConsole.prepareForCli()
         kotlin.system.exitProcess(CliRunner.run(args))
     }
+    // Windows' launcher is a console program (for CLI mode); get rid of that
+    // console before the GUI opens. True means a console-less copy of the app
+    // was started to show the GUI, so this one exits. No-op elsewhere.
+    if (WindowsConsole.detachForGui()) kotlin.system.exitProcess(0)
     runGui()
 }
 

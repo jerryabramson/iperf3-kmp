@@ -19,6 +19,14 @@ if defined IPERF3KMP_BIN (
     exit /b %ERRORLEVEL%
 )
 
+rem Per-user install location first: the .msi installs there since 1.0.1, so a
+rem leftover per-machine 1.0.0 in Program Files must not win.
+set "CANDIDATE=%LOCALAPPDATA%\iperf3KMP\iperf3KMP.exe"
+if exist "%CANDIDATE%" (
+    "%CANDIDATE%" %*
+    exit /b %ERRORLEVEL%
+)
+
 set "CANDIDATE=%ProgramFiles%\iperf3KMP\iperf3KMP.exe"
 if exist "%CANDIDATE%" (
     "%CANDIDATE%" %*
@@ -26,12 +34,6 @@ if exist "%CANDIDATE%" (
 )
 
 set "CANDIDATE=%ProgramFiles(x86)%\iperf3KMP\iperf3KMP.exe"
-if exist "%CANDIDATE%" (
-    "%CANDIDATE%" %*
-    exit /b %ERRORLEVEL%
-)
-
-set "CANDIDATE=%LOCALAPPDATA%\iperf3KMP\iperf3KMP.exe"
 if exist "%CANDIDATE%" (
     "%CANDIDATE%" %*
     exit /b %ERRORLEVEL%
@@ -45,6 +47,6 @@ if %ERRORLEVEL%==0 (
 )
 
 echo iperf3kmp: could not find the installed iperf3KMP launcher. 1>&2
-echo Checked "%ProgramFiles%\iperf3KMP", "%ProgramFiles(x86)%\iperf3KMP", and "%LOCALAPPDATA%\iperf3KMP". 1>&2
+echo Checked "%LOCALAPPDATA%\iperf3KMP", "%ProgramFiles%\iperf3KMP", and "%ProgramFiles(x86)%\iperf3KMP". 1>&2
 echo If it's installed somewhere else, set IPERF3KMP_BIN to the .exe path and re-run. 1>&2
 exit /b 1

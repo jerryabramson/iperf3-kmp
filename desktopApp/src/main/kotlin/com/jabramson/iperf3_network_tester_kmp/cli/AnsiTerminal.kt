@@ -113,14 +113,23 @@ object AnsiTerminal {
         fun fillCell(): String = if (isAnsi) "$ESC[${code + 10};1m" else ""
     }
 
-    /** The two Nerd Font Powerline "round" glyphs BandWidthTester's own
-     * `TerminalType.FANCY_RIGHT_ARROW`/`FANCY_LEFT_ARROW` use as the leading,
-     * rounded cap of its progress track -- safe to rely on here since this
-     * project's own terminal font (`CLAUDE.md`'s font section) is already a
-     * real Nerd Font. Right-pointing for a left-to-right (upload) track,
-     * left-pointing for a right-to-left (reverse/download) one. */
-    const val ARROW_RIGHT = ""
-    const val ARROW_LEFT = ""
+    /** True when the user has opted into Nerd Font glyphs by setting the
+     * `IPERF3KMP_NERD_FONT` environment variable to anything but empty/0/false.
+     * Off by default: a terminal can't report its font, and without a Nerd
+     * Font these private-use glyphs render as empty boxes. */
+    val nerdFont: Boolean = System.getenv("IPERF3KMP_NERD_FONT")
+        ?.trim()?.lowercase()
+        ?.let { it.isNotEmpty() && it != "0" && it != "false" }
+        ?: false
+
+    /** Leading cap of the progress track: right-pointing for a left-to-right
+     * (upload) track, left-pointing for a right-to-left (reverse/download) one.
+     * By default the standard triangles U+25B6/U+25C0, which ordinary terminal
+     * fonts include. With [nerdFont], the Nerd Font Powerline "round" glyphs
+     * (U+E0B4/U+E0B6) BandWidthTester's `TerminalType.FANCY_RIGHT_ARROW`/
+     * `FANCY_LEFT_ARROW` use, e.g. with the Meslo Nerd Font. */
+    val ARROW_RIGHT: String = if (nerdFont) "\uE0B4" else "\u25B6"
+    val ARROW_LEFT: String = if (nerdFont) "\uE0B6" else "\u25C0"
 
     /** Clear the current line and return the cursor to column 1 -- used before
      * printing a completed line over an in-progress status line. */

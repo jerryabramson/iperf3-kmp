@@ -8,7 +8,7 @@ The result is a **mixed-architecture** package: the JVM and `nativeformat.dll` a
 
 ## Prerequisites
 Same as [windows-x86_64.md](windows-x86_64.md), with these differences:
-- **JDK 21, ARM64 build.** The repo's `gradle/gradle-daemon-jvm.properties` asks for JDK 21 vendor Amazon and has no Windows ARM64 download entry. Install `winget install Microsoft.OpenJDK.21 --architecture arm64`, set `JAVA_HOME`, and confirm `java -XshowSettings:properties -version 2>&1 | findstr os.arch` prints `aarch64`. Delete the `toolchainVendor=AMAZON` line locally (do not commit). `gradlew.bat --version` should then say "Compatible with Java 21, any vendor".
+- **An ARM64 JDK on `JAVA_HOME`** to run the Gradle launcher, e.g. `winget install Microsoft.OpenJDK.21 --architecture arm64`. Confirm `java -XshowSettings:properties -version 2>&1 | findstr os.arch` prints `aarch64`. The launcher's architecture decides which JDK Gradle provisions for the build itself: `gradle/gradle-daemon-jvm.properties` (JetBrains 25) has a Windows ARM64 download, fetched automatically. No local edit of that file is needed any more (verified 2026-10-18; older notes said to delete a `toolchainVendor=AMAZON` line).
 - **Do not** install an x64 JDK (e.g. winget's Corretto): Gradle would accept it and run the whole build emulated, producing x64 output.
 - **LLVM: ARM64 build.** `clang --version` should show `Target: aarch64-pc-windows-msvc`.
 - **Visual Studio Build Tools with the ARM64 build tools** (`Microsoft.VisualStudio.Component.VC.Tools.ARM64`).
@@ -28,13 +28,18 @@ The exe is staged under `appResources\windows-arm64\`; the Compose plugin choose
 
 ## Gotchas
 - Kotlin/Native prints "host platform not supported" on windows-aarch64: harmless (iOS targets are ignored).
-- Same CRLF, `cleanIperf3Configure`, and configuration-cache notes as x86_64.
-- The x64 MSI also runs on Windows ARM64 under Prism (confirmed), if a native-JVM build isn't needed.
+- Same CRLF, automatic-reconfigure, and configuration-cache notes as x86_64.
+- The x64 MSI also runs on Windows ARM64 under Prism (confirmed), and it's the recommended install there when Save/History is needed (see the known limitation below).
 
 ## Known limitation: SQLite (Save/History) does not work on Windows ARM64
 
 **Status: accepted gap, documented 2026-10-09.** Everything else works on this target (build,
 install, run, real network tests); only Room/SQLite persistence fails.
+
+**Workaround (recommended when Save/History is needed): install the x86_64 `.msi` on Windows on
+Arm instead of the ARM64 one.** It runs under Prism emulation, and its SQLite works because the
+bundled driver has an x86_64 Windows binary. The trade-off is an emulated JVM instead of a native
+one. Use the ARM64 `.msi` only when native performance matters more than saved history.
 
 **Symptom** (`:desktopApp:run`, trimmed):
 ```
@@ -55,11 +60,11 @@ Windows only for x86, x86_64, armv5 and armv6 — `arm64` is Linux and Android o
 Windows ARM64 JVM there is currently no native SQLite binary either library can load — this isn't
 fixable from this project's build scripts.
 
-**Options considered, not done:**
-1. Fall back to the x64 build on Windows ARM64 (already confirmed to run there under Prism — see
-   the Gotchas above), which has working SQLite since it's x86_64. Drops the native-ARM64-JVM
-   benefit entirely on this one OS.
-2. Build a custom native SQLite driver for Windows ARM64: compile `sqlite3.c` with the ARM64
+**Options considered:**
+1. **Adopted as the user-facing workaround (above):** the x64 build on Windows ARM64 (confirmed
+   to run there under Prism — see the Gotchas above), which has working SQLite since it's x86_64.
+   Drops the native-ARM64-JVM benefit on this one OS.
+2. Not done: build a custom native SQLite driver for Windows ARM64: compile `sqlite3.c` with the ARM64
    toolchain and write a JNI shim behind `androidx.sqlite`'s `SQLiteDriver`/`SQLiteConnection`
    interfaces, the same pattern already used for printf formatting and the iperf3 bridge (see
    `IPERF3_NATIVE_INTEGRATION.md`). Real engineering work, not attempted.

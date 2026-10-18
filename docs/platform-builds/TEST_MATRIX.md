@@ -137,6 +137,33 @@ SQLite binary for Windows ARM64 as of 2026-10-09. See `platform-builds/windows-a
 the detail and the options considered. Tracking: [issuetracker.google.com/issues/426464784](https://issuetracker.google.com/issues/426464784)
 (open, unassigned, P3). Re-check when either library adds Windows ARM64 support, or that issue changes status.
 
+## G. 1.0.1 release round (started 2026-10-18)
+
+Code under test: `test-1.0.1` (`757d04c`, `VERSION` 1.0.1) **plus uncommitted changes** made during this round (Windows
+per-user install, console CLI and UTF-8 output, Start-menu entry, vendor/package metadata, automatic iperf3 reconfigure,
+`IPERF3KMP_NERD_FONT`, container-script version fix, jvmTest fixes). Re-confirm builds on the final commit once those are
+committed; the release itself is tagged and built from that commit.
+
+Legend as above. "Auto" = verified by command/SSH; "manual" = needs a person at the machine.
+
+| Cell | Machine | Build | Auto checks | Manual checks | Status |
+|---|---|---|---|---|---|
+| `.msi` x64 | Windows 11 x64 (`proart1`, 192.168.1.113) | ✅ `packageMsi` | ✅ 39 jvmTest incl. live iperf3 (system iperf3 3.12); per-user install to `%LOCALAPPDATA%`; console launcher; `--version` 1.0.1 / exit codes; UTF-8 output (no `?`), code page restored; Publisher, `Network Tools` Start-menu entry, pinned UpgradeCode | ✅ no UAC on double-click; ✅ Start-menu launch closes its console; ✅ CLI in Windows Terminal with `IPERF3KMP_NERD_FONT=1`. ⬜ GUI test, Save → History → CSV; ⬜ uninstall; ⬜ BandWidthTester comparison | ⏳ |
+| `.msi` ARM64 | Windows 11 ARM64 VM (Parallels, 10.211.55.32) | ✅ `packageMsi` (needed Cygwin `make` installed) | ✅ jvmTest; ARM64 launcher + JVM, x64 `iperf3.exe`; per-user install; UTF-8 CLI; metadata as x64 | ⬜ GUI test, Start-menu launch, CLI in Windows Terminal; Save/History is the accepted gap | ⏳ |
+| `.msi` x64 on ARM64 (History workaround) | Windows 11 ARM64 VM | n/a | — | ⬜ install x64 `.msi` (uninstall ARM64 first: same UpgradeCode), confirm Save → History works | ⬜ |
+| `.deb` arm64 (container, Ubuntu 22.04 base) | built on Mac (Docker Desktop), installed on Debian 13 aarch64 VM | ✅ glibc max 2.34 | ✅ control: Section `net`, Maintainer, Homepage, long Description; `--version` 1.0.1 | ✅ installed and checked per owner | ✅ |
+| `.rpm` arm64 (container, Rocky 9 base) | built on Mac (Docker Desktop), installed on Fedora 44 Server aarch64 VM (10.211.55.43) | ✅ glibc max 2.34 | ✅ Group `net`, License `BSD-3-Clause`, Vendor, Description; Summary is the app name (jpackage's choice); `--version` 1.0.1 | ✅ `dnf install`, `rpm -qi`, live CLI test vs `pve` (avg 1.87 Gbit/s), per owner. GUI not checked (Server Edition, no desktop); ✅ `dnf remove` (known dnf5 `%preun` rpmdb-lock message, harmless; `/opt/iperf3kmp` gone, no menu entry left) | ✅ |
+| `.deb`/`.rpm` x86_64 | Fedora / Debian x86_64 hosts | ⬜ | ⬜ | ⬜ | ⬜ |
+| `.dmg` | Mac | ⬜ `installDmg` on final code | ✅ 39 jvmTest; desktop compiles | ⬜ GUI test, CLI (incl. `env -u COLUMNS`), BandWidthTester comparison | ⬜ |
+| iOS | Mac + Xcode | ⬜ simulator + device, 1.0.1 (10001) | ⬜ `iosSimulatorArm64Test` | ⬜ real test, Local Network prompt, Save → History; no stray `project.pbxproj`/`.xcscheme` changes | ⬜ |
+| Android | Mac | ⬜ `assembleDebug` | ⬜ `testAndroidHostTest` | ⬜ emulator + device test; signed `.aab` for Play internal testing (release signing not set up yet) | ⬜ |
+
+Open follow-ups found this round: raw `iperf Done.` line shows in the CLI on Windows and also on Linux (Fedora `.rpm`), so it's not
+Windows-only; in the same run `Connecting to host ...` printed after the progress line, and the last rule is shorter (82 columns) than the others;
+`.rpm` has no Homepage/URL (Compose has no setting); stopping a test showed `⚠ Uncaught Exception: JobCancellationException`
+(iOS, seen by owner; shared code, so all platforms) — fixed in `Iperf3Executor.startTest()`, re-tested on the iOS simulator. The `control socket has
+closed unexpectedly` line after a Stop stays by design: it's the same error a real server interruption gives.
+
 ## Results log
 
 Add one line per run: date · cell · commit · machine/OS build · pass/fail · what changed in the checklist.
@@ -168,3 +195,13 @@ Add one line per run: date · cell · commit · machine/OS build · pass/fail ·
 | 2026-10-04 | Android APK (Linux-built), installed and launched on Pixel 9 emulator (x86_64) | `2b2f376` | Fedora x86_64 host | pass | Installed and launched per owner |
 | 2026-10-04 | Android APK (Linux-built), installed and launched on moto g stylus 2025 over USB | `2b2f376` | Fedora x86_64 host | pass | Installed, launched, and test run verified per owner |
 | 2026-10-09 | `.msi` (ARM64 build), Windows 11 ARM64 | `1744c7a` | Parallels VM | pass (network); fail (SQLite) | Real iperf3 test confirmed. Save/History fails: no Windows ARM64 native SQLite binary upstream (androidx.sqlite-bundled or sqlite-jdbc) — accepted gap, see section F and `platform-builds/windows-arm64.md` |
+| 2026-10-18 | `.msi` x64 build + jvmTest + silent install, Windows 11 x64 | `757d04c` + uncommitted | `proart1` | pass | Live iperf3 jvmTest now runs on Windows (finds system iperf3, points the Windows runner at it) |
+| 2026-10-18 | `.msi` x64 manual: install, Start menu, CLI with Nerd Font | `757d04c` + uncommitted | `proart1` | pass | No UAC; console closes after GUI relaunch; per owner |
+| 2026-10-18 | `.msi` ARM64 build + jvmTest + silent install | `757d04c` + uncommitted | Parallels VM, 10.211.55.32 | pass | Needed Cygwin `make`; daemon JDK auto-provisioned (JetBrains 25), no manual JDK-vendor edit |
+| 2026-10-18 | `.deb` arm64 container build (Ubuntu 22.04 base), installed on Debian 13 aarch64 | `757d04c` + uncommitted | Mac Docker Desktop; Debian 13 VM | pass | New package metadata confirmed via `apt show`; container script fixed to read `VERSION` |
+| 2026-10-18 | `.rpm` arm64 container build (Rocky 9 base) | `757d04c` + uncommitted | Mac Docker Desktop | pass (build) | Container script `VERSION` fix confirmed; install not yet tested |
+| 2026-10-18 | `.rpm` arm64 installed on Fedora 44 Server aarch64 | `757d04c` + uncommitted | Parallels VM, 10.211.55.43 | pass | Metadata via `rpm -qi`; `--version` 1.0.1; live CLI test against `pve` per owner. Raw `iperf Done.` line seen here too |
+| 2026-10-18 | iOS device, Stop during a test | `757d04c` + uncommitted | iPhone (owner) | fail → fixed | Stop showed `Uncaught Exception: JobCancellationException`: `startTest()` caught the coroutine's cancellation as an error. Now rethrown; jvmTest 39/0; re-test pending |
+| 2026-10-18 | `.rpm` arm64 uninstall on Fedora 44 Server aarch64 | `757d04c` + uncommitted | Parallels VM, 10.211.55.43 | pass | `%preun` printed `can't create transaction lock` (jpackage's `rpm -q` under dnf5, known); nothing left behind |
+| 2026-10-18 | iOS simulator, Stop during a 30 s test (re-test of cancellation fix) | `757d04c` + uncommitted | Mac, iOS simulator | pass | Only `Test Cancelled` + `control socket has closed unexpectedly` (kept by design); no `Uncaught Exception`; bridge logged `Test stopped due to stop request` |
+| 2026-10-18 | iOS simulator, connection failure (`Connection refused`) | `757d04c` + uncommitted | Mac, iOS simulator | pass | Correct error shown; elapsed time and Stop now clear promptly after a fast failure (`native/iperf3_bridge.c` monitor thread checks `done` every 10 ms tick instead of once a second); jvmTest 39/0 |

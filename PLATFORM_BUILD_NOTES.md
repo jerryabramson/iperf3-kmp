@@ -21,7 +21,7 @@ Not supported: Intel Macs (macOS and the iOS simulator are Apple Silicon only, b
 2. **Android SDK, even for desktop-only builds.** AGP configures every subproject. Set `ANDROID_HOME` or a gitignored `local.properties` with `sdk.dir=`. Install `platforms;android-37.0` and `build-tools;37.0.0` (`android-37` alone fails).
 3. **Gradle wrapper only** (`./gradlew`, `gradlew.bat`), Gradle 9.x. The JDK (21, Amazon) is auto-provisioned via foojay, except on Windows ARM64 (see its checklist).
 4. **Desktop packages cannot be cross-compiled.** Each `.dmg`/`.deb`/`.rpm`/`.msi` must be built on that OS and architecture, because native libraries are compiled for the build host at build time. (Linux can use the container scripts, which build for the container's CPU.)
-5. **Switching a checkout between OSes/architectures:** delete `third_party/iperf/src/iperf_config.h` and `version.h`, or run `./gradlew cleanIperf3Configure` as its own invocation, before building. `./configure` output is OS/arch-specific and is cached.
+5. **Switching a checkout between OSes/architectures:** nothing to do: the cached iperf3 `./configure` output is rebuilt automatically when the host OS/arch changes (marker: `build/iperf3-configure-host.txt`). To force it anyway, run `./gradlew cleanIperf3Configure` as its own invocation. `./configure` output is OS/arch-specific and is cached.
 6. **Windows only: LF line endings in the submodule.** See [windows-x86_64.md](docs/platform-builds/windows-x86_64.md).
 
 ## Tests

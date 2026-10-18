@@ -29,6 +29,14 @@ class IperfRunnerJvmTest {
             return
         }
 
+        // On Windows IperfRunner runs the app-bundled iperf3.exe, found via
+        // compose.application.resources.dir (WindowsIperf3ProcessRunner). A test
+        // JVM has no app bundle, so point that at the iperf3 found above.
+        val resourcesDirProperty = "compose.application.resources.dir"
+        val isWindows = System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)
+        val setResourcesDir = isWindows && System.getProperty(resourcesDirProperty) == null
+        if (setResourcesDir) System.setProperty(resourcesDirProperty, File(iperf3Binary).parent)
+
         val port = 15303
         val server = ProcessBuilder(iperf3Binary, "-s", "-p", port.toString(), "-1")
             .redirectErrorStream(true)
@@ -74,16 +82,26 @@ class IperfRunnerJvmTest {
             )
         } finally {
             server.destroy()
+            if (setResourcesDir) System.clearProperty(resourcesDirProperty)
         }
     }
 
+    /** `IPERF3_BINARY` if set, then the usual install locations (the same list
+     * BandWidthTester searches, which covers Windows installs that aren't on
+     * PATH), then each PATH entry. Each candidate is actually checked, so a
+     * host without iperf3 skips the test instead of failing with "Cannot run
+     * program iperf3". */
     private fun findIperf3Binary(): String? {
-        val candidates = listOf("/usr/local/bin/iperf3", "/opt/homebrew/bin/iperf3", "iperf3")
-        for (candidate in candidates) {
-            if (candidate == "iperf3" || File(candidate).canExecute()) {
-                return candidate
-            }
-        }
-        return null
+        val exeName = if (System.getProperty("os.name").orEmpty().startsWith("Windows", ignoreCase = true)) "iperf3.exe" else "iperf3"
+        val override = System.getenv("IPERF3_BINARY")?.takeIf { it.isNotBlank() }?.let(::File)
+        val fixed = listOf(
+            "/usr/local/bin/iperf3", "/opt/homebrew/bin/iperf3", "/usr/bin/iperf3", "/opt/local/bin/iperf3",
+            "C:/Program Files/iperf3.17.1_64/iperf3.exe", "C:/Program Files/iperf3-3.17.1_64/iperf3.exe",
+            "C:/Program Files/iperf3.12_64/iperf3.exe", "C:/Program Files/iperf-3.1.3-win64/iperf3.exe",
+        ).map(::File)
+        val onPath = System.getenv("PATH").orEmpty().split(File.pathSeparator)
+            .filter { it.isNotBlank() }
+            .map { File(it, exeName) }
+        return (listOfNotNull(override) + fixed + onPath).firstOrNull { it.isFile && it.canExecute() }?.absolutePath
     }
 }

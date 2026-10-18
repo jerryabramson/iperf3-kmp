@@ -13,6 +13,8 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 
 **Documentation:** see [docs/README.md](docs/README.md) for an index of the architecture, per-platform build, and research docs.
 
+**Support:** report bugs and ask questions in [GitHub Issues](https://github.com/jerryabramson/iperf3-kmp/issues). The maintainer address inside the Linux packages is a GitHub no-reply address, so email sent there isn't delivered.
+
 ## Platforms Supported
 1. Android<br>
     * `arm64` <ins>physical</ins> and <ins>simulator</ins><br>
@@ -272,6 +274,7 @@ per-platform install layout:
 <img alt="command-line execution" src="docs/images/command-line%20images.png" title="Command-line execution"/>
 
 * See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag list.
+* The progress track uses `▶`/`◀`, which ordinary terminal fonts include. With a [Nerd Font](https://www.nerdfonts.com/) (e.g. Meslo) set `IPERF3KMP_NERD_FONT=1` (`export` in your shell profile, or `setx IPERF3KMP_NERD_FONT 1` on Windows) for the rounded Powerline caps instead.
 * ANSI output works out of the box on Windows too, and falls back to plain text (no escape codes) when `TERM` looks like a dumb terminal, so redirected-to-a-file and CI/log-capture output stays readable.
 * When checking how the live output actually looks (cursor positioning, in-place redraws, column alignment), test via the packaged binary (`bin/iperf3kmp`/`iperf3KMP.exe`) or the built app directly — **not** `./gradlew :desktopApp:run`, even with `--args`/`--console=plain`:
   * Gradle wraps the forked JVM's stdout, so it isn't a real TTY from the process's own perspective.

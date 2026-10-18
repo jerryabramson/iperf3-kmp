@@ -163,7 +163,7 @@ Practical requirements per host:
 
 Two more things to know before packaging on a new host:
 - **No fat binaries / no arch matrix** — only the architecture of the build machine gets compiled in (unlike the Android module, which builds all four ABIs via `abiFilters`). An Apple Silicon `.dmg` won't run on an Intel Mac and vice versa; there's no equivalent of Android's per-ABI splitting for desktop.
-- `compileIperf3Jvm` runs `third_party/iperf`'s `./configure` once and caches a marker file so it won't re-run. If you reuse the same checkout to build on a different OS than it was last configured on, delete the configure marker/`third_party/iperf/src/iperf_config.h` first (or just use a clean checkout per build host) — otherwise a stale cross-OS config can silently miscompile.
+- `compileIperf3Jvm`/`compileIperf3ExeWindows` cache `third_party/iperf`'s `./configure` output (`src/iperf_config.h`/`version.h`) and record which host made it in `build/iperf3-configure-host.txt` (`<os>-<arch>`). When that doesn't match the current host, or is missing (e.g. after `clean`), they delete the cached config and reconfigure automatically (`Iperf3Shell.configureForHost` in `shared/build.gradle.kts`). This matters for checkouts shared across hosts — VM shared folders and the container scripts' bind mount — where another OS's config otherwise fails (`'linux/tcp.h' file not found` on macOS) or silently miscompiles. The marker is in the root `build/`, not the submodule, so it never shows in `git status`. `./gradlew cleanIperf3Configure` (its own invocation) remains as a manual override.
 
 #### Setting up a fresh build host (new machine/OS)
 

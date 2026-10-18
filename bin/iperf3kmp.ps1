@@ -27,10 +27,12 @@ if ($env:IPERF3KMP_BIN) {
     exit $LASTEXITCODE
 }
 
+# Per-user location first: the .msi installs there since 1.0.1, so a leftover
+# per-machine 1.0.0 in Program Files must not win.
 $candidates = @(
+    "$env:LOCALAPPDATA\iperf3KMP\iperf3KMP.exe",
     "$env:ProgramFiles\iperf3KMP\iperf3KMP.exe",
-    "${env:ProgramFiles(x86)}\iperf3KMP\iperf3KMP.exe",
-    "$env:LOCALAPPDATA\iperf3KMP\iperf3KMP.exe"
+    "${env:ProgramFiles(x86)}\iperf3KMP\iperf3KMP.exe"
 )
 
 foreach ($candidate in $candidates) {

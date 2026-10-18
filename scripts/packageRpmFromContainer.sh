@@ -130,7 +130,9 @@ set +x
 # RPM's arch suffix (x86_64/aarch64 - uname-style, NOT amd64/arm64 like
 # Debian's) depends on the container's arch - glob for it rather than
 # guessing.
-RPM_FILE="$(find "$OUT_DIR" -maxdepth 1 -name 'iperf3kmp-1.0.0-1.*.rpm' -print -quit)"
+# Version from the repo-root VERSION file (the cwd is the repo root), not hardcoded.
+APP_VERSION="$(tr -d '[:space:]' < VERSION)"
+RPM_FILE="$(find "$OUT_DIR" -maxdepth 1 -name "iperf3kmp-${APP_VERSION}-1.*.rpm" -print -quit)"
 if [ -z "$RPM_FILE" ]; then
     echo "ERROR: Expected .rpm payload not found in $OUT_DIR!"
     exit 1

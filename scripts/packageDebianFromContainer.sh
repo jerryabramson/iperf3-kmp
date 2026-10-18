@@ -126,7 +126,9 @@ set +x
 
 # Debian's arch suffix (amd64/arm64) depends on the container's arch, not
 # the host's raw `uname -m` string - so glob for it rather than guessing.
-DEB_FILE="$(find "$OUT_DIR" -maxdepth 1 -name 'iperf3kmp_1.0.0_*.deb' -print -quit)"
+# Version from the repo-root VERSION file (the cwd is the repo root), not hardcoded.
+APP_VERSION="$(tr -d '[:space:]' < VERSION)"
+DEB_FILE="$(find "$OUT_DIR" -maxdepth 1 -name "iperf3kmp_${APP_VERSION}_*.deb" -print -quit)"
 if [ -z "$DEB_FILE" ]; then
     echo "ERROR: Expected .deb payload not found in $OUT_DIR!"
     exit 1

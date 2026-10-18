@@ -64,7 +64,12 @@ val compileNativeFormatJvm = tasks.register<Exec>("compileNativeFormatJvm") {
     val outDir = nativeFormatResourceDir.map { it.dir("nativeformat/$hostOsName-$hostArchName") }
     val outFile = outDir.map { it.file(nativeFormatLibFileName) }
 
+    // Desktop-only: Windows FreeConsole() for GUI launches (see the file's
+    // header). Compiles to a no-op on macOS/Linux; not part of Android's build.
+    val winConsoleSource = nativeSrcDir.file("win_console_jni.c")
+
     inputs.file(jniSource)
+    inputs.file(winConsoleSource)
     inputs.file(nativeSrcDir.file("native_format.h"))
     outputs.file(outFile)
 
@@ -134,7 +139,8 @@ val compileNativeFormatJvm = tasks.register<Exec>("compileNativeFormatJvm") {
             "-I", "$javaHome/include",
             "-I", "$javaHome/include/$jniPlatformDir",
             "-o", outFile.get().asFile.absolutePath,
-            jniSource.asFile.absolutePath
+            jniSource.asFile.absolutePath,
+            winConsoleSource.asFile.absolutePath
         )
     commandLine(clangCommand)
 }
@@ -182,7 +188,33 @@ fun assertUnixLineEndings(srcDir: File) {
         )
     }
 }
+/** Runs [configure] unless third_party/iperf's cached ./configure output
+ * (iperf_config.h/version.h) already exists *and* [stampFile] says it was
+ * generated for [hostKey] ("<os>-<arch>"). A checkout shared across hosts —
+ * a VM's shared folder, or the container scripts' bind mount — otherwise
+ * reuses another OS's config and fails (e.g. `'linux/tcp.h' file not found`
+ * on macOS) or silently miscompiles. A missing stamp counts as stale, so the
+ * first build after a `clean` reconfigures once. Replaces running
+ * cleanIperf3Configure by hand; that task still works as a manual override. */
+fun configureForHost(srcDir: File, stampFile: File, hostKey: String, log: (String) -> Unit, configure: () -> Unit) {
+    val generated = listOf("iperf_config.h", "version.h").map { File(srcDir, it) }
+    val stampedHost = stampFile.takeIf { it.exists() }?.readText()?.trim()
+    if (generated[0].exists() && stampedHost != hostKey) {
+        log("iperf3 ./configure output is for ${stampedHost ?: "an unknown host"}, not $hostKey: reconfiguring")
+        generated.forEach { it.delete() }
+    }
+    if (!generated[0].exists()) {
+        assertUnixLineEndings(srcDir)
+        configure()
+        stampFile.parentFile.mkdirs()
+        stampFile.writeText(hostKey)
+    }
 }
+}
+// Lives in the root build dir, not next to iperf_config.h: a new file inside
+// the submodule would show up as untracked content in `git status`.
+val iperf3ConfigureStamp = rootProject.layout.buildDirectory.file("iperf3-configure-host.txt")
+val iperf3ConfigureHostKey = "$hostOsName-$hostArchName"
 val iperf3Sources = listOf(
     "cjson.c", "iperf_api.c", "iperf_client_api.c", "iperf_error.c",
     "iperf_locale.c", "iperf_pthread.c", "iperf_tcp.c", "iperf_time.c",
@@ -190,6 +222,9 @@ val iperf3Sources = listOf(
     "timer.c", "units.c"
 )
 
+// Manual override only: Iperf3Shell.configureForHost (above) already
+// reconfigures automatically when the host OS/arch changes.
+//
 // third_party/iperf's ./configure output (iperf_config.h/version.h,
 // gitignored) is cached across runs so compileIperf3Jvm doesn't re-run
 // ./configure every single build - see this task's own comments and
@@ -268,8 +303,12 @@ val compileIperf3Jvm = tasks.register("compileIperf3Jvm") {
     val outDir = iperf3ResourceDir.map { it.dir("iperf3native/$osName-$hostArchName") }
     val outFile = outDir.map { it.file(libFileName) }
     val objDir = layout.buildDirectory.dir("intermediates/iperf3nativeObjects")
-    val configuredMarker = iperf3SrcDir.file("iperf_config.h")
+    val stampFile = iperf3ConfigureStamp.get().asFile
+    val hostKey = iperf3ConfigureHostKey
 
+    // A different host must rerun this task (and its configure check) even
+    // when no source file changed.
+    inputs.property("iperf3ConfigureHost", hostKey)
     inputs.file(jniSource)
     inputs.file(nativeSrcDir.file("iperf3_bridge.c"))
     inputs.file(nativeSrcDir.file("iperf3_bridge.h"))
@@ -421,8 +460,7 @@ val compileIperf3Jvm = tasks.register("compileIperf3Jvm") {
         outDir.get().asFile.mkdirs()
         objDir.get().asFile.mkdirs()
 
-        if (!configuredMarker.asFile.exists()) {
-            Iperf3Shell.assertUnixLineEndings(srcDir)
+        Iperf3Shell.configureForHost(srcDir, stampFile, hostKey, { logger.lifecycle("compileIperf3Jvm: $it") }) {
             runProcess(
                 listOf("./configure", "--without-sctp", "--with-openssl=no"),
                 srcDir.parentFile
@@ -554,11 +592,13 @@ val compileIperf3ExeWindows = tasks.register("compileIperf3ExeWindows") {
 
     val objDir = layout.buildDirectory.dir("intermediates/iperf3ExeObjects")
     val exeSources = sources + listOf("main.c", "iperf_server_api.c")
-    val configuredMarker = iperf3SrcDir.file("iperf_config.h")
+    val stampFile = iperf3ConfigureStamp.get().asFile
+    val hostKey = iperf3ConfigureHostKey
     val outDirProvider = iperf3ExeOutDir
     val outExeFile = outDirProvider.get().file("iperf3.exe").asFile
     val cygwinDll = File("C:\\cygwin64\\bin\\cygwin1.dll")
 
+    inputs.property("iperf3ConfigureHost", hostKey)
     inputs.dir(iperf3SrcDir)
     outputs.dir(outDirProvider)
 
@@ -613,8 +653,7 @@ val compileIperf3ExeWindows = tasks.register("compileIperf3ExeWindows") {
         }
         cygwinDll.copyTo(File(outExeFile.parentFile, "cygwin1.dll"), overwrite = true)
 
-        if (!configuredMarker.asFile.exists()) {
-            Iperf3Shell.assertUnixLineEndings(srcDir)
+        Iperf3Shell.configureForHost(srcDir, stampFile, hostKey, { logger.lifecycle("compileIperf3ExeWindows: $it") }) {
             runProcess(
                 listOf("./configure", "--without-sctp", "--with-openssl=no"),
                 srcDir.parentFile

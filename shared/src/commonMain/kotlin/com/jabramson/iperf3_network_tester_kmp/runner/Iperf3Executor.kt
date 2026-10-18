@@ -18,6 +18,7 @@ import com.jabramson.iperf3_network_tester_kmp.utils.Log
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiInputData
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.DefaultInputData.HOST_NAME
 import kotlinx.coroutines.delay
+import kotlin.coroutines.cancellation.CancellationException
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.Duration.Companion.seconds
 
@@ -318,13 +319,20 @@ class Iperf3Executor(
                     }
                 )
             )
+        } catch (e: CancellationException) {
+            // The ViewModel cancelled this run (Stop: Iperf3RunViewModel.cancel()
+            // calls runJob?.cancel()). withContext() throws this once the native
+            // call returns after the force stop; it's expected, not an error, and
+            // must propagate so the coroutine finishes cancelling.
+            throw e
         } catch (e: Exception) {
             stderr(iperf3OutputMonitor.getCurrentLineResult(), "⚠ Uncaught Exception: $e")
             e.printStackTrace()
             -1
+        } finally {
+            isIperfRunning = false
         }
 
-        isIperfRunning = false
         return rc
     }
 }

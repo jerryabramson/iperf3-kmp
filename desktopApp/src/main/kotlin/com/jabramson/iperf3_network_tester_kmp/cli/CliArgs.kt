@@ -189,5 +189,9 @@ object CliArgs {
                                    to avoid "server is busy" when looping fast
           -V, --version           print the version and exit
           -h, --help              show this help and exit
+
+        Environment:
+          IPERF3KMP_NERD_FONT=1   draw the progress track with Nerd Font glyphs
+                                   (needs a Nerd Font such as Meslo; default: ▶/◀)
     """.trimIndent()
 }

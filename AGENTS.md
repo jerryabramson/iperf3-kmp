@@ -41,7 +41,7 @@ No lint/typecheck commands are configured. Test sources: `shared/src/{commonTest
 
 **Build & native**
 - **Stale native `.so` on Android**: AGP's CMake up-to-date check misses edits to `native/*.c` — run `./gradlew cleanNativeCxxCaches` after touching them.
-- Desktop native libs compile for the host OS/arch only (no cross-compiling, no fat binaries). The iperf3 `./configure` result is cached; before building on a different OS than last time, run `./gradlew cleanIperf3Configure` as its **own** invocation, then build.
+- Desktop native libs compile for the host OS/arch only (no cross-compiling, no fat binaries). The iperf3 `./configure` result is cached and rebuilt automatically when the host OS/arch changes (marker: `build/iperf3-configure-host.txt`); `./gradlew cleanIperf3Configure` (as its own invocation) still forces a reconfigure by hand.
 - The desktop app `System.load()`s its JNI libs, so `compose.desktop.application` sets `--enable-native-access=ALL-UNNAMED` (JDK 24+ warns without it, a future JDK blocks it). Keep it.
 - `StringFormatterTest` is excluded from `androidHostTest` (Robolectric can't load a real `.so`) — covered by `jvmTest` + `iosSimulatorArm64Test`.
 - Don't update Kotlin Multiplatform to 1.12 or otherwise bump `gradle/libs.versions.toml` — not currently compatible.
