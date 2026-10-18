@@ -1,7 +1,17 @@
 #!/usr/bin/env bash
+#
+# Copyright (c) 2026, Jerold Abramson
+#
+# This source code is licensed under the BSD 3-Clause License found in
+# the LICENSE file in the root directory of this source tree.
+#
+
 # One-line installer for iperf3KMP on Linux / macOS. See README.md.
 #
 #   curl -fsSL https://raw.githubusercontent.com/jerryabramson/iperf3-kmp/master/install.sh | bash
+#
+# Installs a published GitHub release. To build and install *this checkout*
+# instead, use scripts/installMacFromPackage.sh or scripts/installLinuxFromPackage.sh.
 #
 # Downloads the right installer for this OS/arch from the latest GitHub
 # release and installs it (.dmg on macOS, .deb/.rpm on Linux). The GUI and

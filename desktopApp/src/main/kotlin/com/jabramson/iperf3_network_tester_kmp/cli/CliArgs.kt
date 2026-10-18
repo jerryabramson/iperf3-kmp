@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 package com.jabramson.iperf3_network_tester_kmp.cli
 
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.DefaultInputData
@@ -10,7 +17,20 @@ import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiInputData
 data class CliOptions(
     val input: UiInputData = UiInputData(),
     val help: Boolean = false,
+    val version: Boolean = false,
     val error: String? = null,
+    /** Number of consecutive tests to run. 1 (the default) is today's single-run behavior. */
+    val loopCount: Int = 1,
+    /**
+     * Optional port range to cycle through across loop iterations (round-robin,
+     * wrapping back to [IntRange.first] once past [IntRange.last]), instead of
+     * every iteration reusing the single `--port` value. Lets a personal
+     * multi-instance test server (e.g. iperf3's own documented systemd
+     * `iperf3-server@.service` pattern, one process per port) back repeated
+     * CLI test runs without hitting "server is busy running a test" from
+     * landing back-to-back on the same still-finishing instance.
+     */
+    val portPool: IntRange? = null,
 )
 
 /**
@@ -38,6 +58,8 @@ object CliArgs {
         var isForceFlush = DefaultInputData.FORCE_FLUSH
         var isReverse = false
         var isDebugging = DefaultInputData.IS_DEBUGGING
+        var loopCount = 1
+        var portPool: IntRange? = null
 
         var i = 0
         var sawHost = false
@@ -52,6 +74,7 @@ object CliArgs {
             val arg = args[i]
             when {
                 arg == "-h" || arg == "--help" -> return CliOptions(help = true)
+                arg == "-V" || arg == "--version" -> return CliOptions(version = true)
 
                 arg == "-c" || arg == "--client" -> {
                     hostName = nextValue() ?: return missing(arg)
@@ -88,6 +111,23 @@ object CliArgs {
                 arg == "--no-flush" -> isForceFlush = false
                 arg == "-v" || arg == "--verbose" -> isDebugging = true
 
+                arg == "-l" || arg == "--loop" -> {
+                    val v = nextValue() ?: return missing(arg)
+                    loopCount = v.toIntOrNull()?.takeIf { it >= 1 } ?: return invalid(arg, v)
+                }
+
+                arg == "--port-pool" -> {
+                    val v = nextValue() ?: return missing(arg)
+                    val match = Regex("""^(\d+)-(\d+)$""").find(v) ?: return invalid(arg, v)
+                    val (startStr, endStr) = match.destructured
+                    val start = startStr.toIntOrNull()
+                    val end = endStr.toIntOrNull()
+                    if (start == null || end == null || start !in 1..65535 || end !in 1..65535 || start > end) {
+                        return invalid(arg, v)
+                    }
+                    portPool = start..end
+                }
+
                 !arg.startsWith("-") && !sawHost -> {
                     hostName = arg
                     sawHost = true
@@ -113,7 +153,9 @@ object CliArgs {
                 isForceFlush = isForceFlush,
                 isReverse = isReverse,
                 isDebugging = isDebugging,
-            )
+            ),
+            loopCount = loopCount,
+            portPool = portPool,
         )
     }
 
@@ -139,6 +181,13 @@ object CliArgs {
               --timeout <ms>      connection timeout in ms      (default: ${DefaultInputData.TIMEOUT})
               --no-flush          disable --forceflush
           -v, --verbose           also print each raw iperf3 output line
+          -l, --loop <n>          run n consecutive tests        (default: 1)
+              --port-pool <a>-<b> cycle ports a..b across loop iterations instead of
+                                   reusing --port every time -- pairs with a personal
+                                   multi-instance test server (e.g. iperf3's own
+                                   documented systemd iperf3-server@.service pattern)
+                                   to avoid "server is busy" when looping fast
+          -V, --version           print the version and exit
           -h, --help              show this help and exit
     """.trimIndent()
 }

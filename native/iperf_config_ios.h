@@ -1,3 +1,16 @@
+// Copyright (c) 2026, Jerold Abramson
+//
+// This source code is licensed under the BSD 3-Clause License found in
+// the LICENSE file in the root directory of this source tree.
+//
+// Derived from the ./configure-generated iperf_config.h of iperf3 (ESnet,
+// https://github.com/esnet/iperf):
+//   iperf, Copyright (c) 2014-2026, The Regents of the University of
+//   California, through Lawrence Berkeley National Laboratory (subject to
+//   receipt of any required approvals from the U.S. Dept. of Energy).
+//   All rights reserved.
+// Used under iperf's BSD 3-Clause license; see third_party/iperf/LICENSE.
+
 /*
  * Hand-written iperf_config.h for iOS (arm64 device + arm64 simulator —
  * both cross-compiled from a macOS host via `xcrun -sdk iphoneos`/
@@ -15,10 +28,8 @@
  * compileIperf3Jvm task and IPERF3_NATIVE_INTEGRATION.md §6.6) — that
  * output already compiles and links libiperf cleanly on Darwin, and
  * iOS's SDK exposes the same BSD sockopt constants (IP_BOUND_IF,
- * IP_DONTFRAG, SO_BINDTODEVICE-equivalent, etc.) macOS does, so it should
- * carry over as-is. Not yet runtime-verified on a real device/simulator —
- * flag here if a build or runtime test surfaces a real iOS/macOS
- * divergence in any of these.
+ * IP_DONTFRAG, SO_BINDTODEVICE-equivalent, etc.) macOS does, so it carries
+ * over as-is — verified end-to-end on iOS Simulators and real devices.
  *
  * OpenSSL/SCTP are intentionally unavailable — see
  * IPERF3_NATIVE_INTEGRATION.md §6.6 (this project doesn't use iperf3's auth

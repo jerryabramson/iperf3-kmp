@@ -21,7 +21,7 @@ Planning/tracking doc for open work on `iperf3KMP`. Case-study write-ups live in
 
 ## Open work
 
-- [ ] **Automated Room round-trip test.** Persistence is manually verified end-to-end on all three platforms, but no regression test guards it yet (insert → read back by guid → assert field equality; `ROOMDBPLAN.md`'s testing section has the minimum bar).
+- [ ] **Automated Room round-trip test.** Persistence is manually verified end-to-end on all three platforms, but no regression test guards it yet (insert → read back by guid → assert field equality; the minimum bar and per-target drivers are in `CLAUDE.md`'s "Room + KMP SQLite persistence" section).
 
 - [ ] **Native (non-Cygwin) `iperf3.exe` for Windows ARM64.** Today's `.msi` bundles an x64 Cygwin-built `iperf3.exe`, confirmed working under Prism emulation on a real ARM64 machine — but there's no released ARM64 Cygwin, so a genuinely native build is a separate effort. Plan, options (community MSVC port vs. MSYS2 CLANGARM64), and a measure-first phase-0 gate: `WINDOWS_ARM64_IPERF3_PLAN.md`.
 

@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 import groovy.lang.ExpandoMetaClassCreationHandle.enable
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import java.util.concurrent.TimeUnit
@@ -659,7 +666,7 @@ val iperf3IosSdkByTarget = mapOf(
     "iosArm64" to "iphoneos",
     "iosSimulatorArm64" to "iphonesimulator"
 )
-val iperf3IosDeploymentTarget = "18.2" // matches iosApp.xcodeproj's IPHONEOS_DEPLOYMENT_TARGET
+val iperf3IosDeploymentTarget = "18.5" // matches iosApp.xcodeproj's IPHONEOS_DEPLOYMENT_TARGET
 val iperf3IosGeneratedDir = layout.buildDirectory.dir("generated/iperf3iosBridge")
 
 val compileIperf3IosTasks = iperf3IosSdkByTarget.mapValues { (targetName, sdk) ->
@@ -779,6 +786,13 @@ kotlin {
         iosTarget.binaries.framework {
             baseName = "Shared"
             isStatic = true
+            // Explicit framework bundle ID; otherwise Kotlin/Native warns "Cannot infer
+            // a bundle ID ... use the bundle name instead: Shared" on every build.
+            // Hyphens, not the package's underscores (invalid in a bundle ID). Fixed
+            // rather than per-developer: a static framework is linked into the app
+            // binary, never signed or installed on its own, so this ID never has to
+            // match anyone's team or the app's own BUNDLE_ID_PREFIX.
+            binaryOption("bundleId", "com.jabramson.iperf3-network-tester-kmp.shared")
             // sqlite-framework's cinterop declares the sqlite3 C API but
             // doesn't bundle an implementation; NativeSQLiteDriver needs
             // the OS-provided library linked in explicitly.

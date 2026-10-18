@@ -1,3 +1,8 @@
+// Copyright (c) 2026, Jerold Abramson
+//
+// This source code is licensed under the BSD 3-Clause License found in
+// the LICENSE file in the root directory of this source tree.
+
 /*
  * native_format.h — single source of truth for printf-style formatting,
  * shared across Android (JNI), desktop JVM (JNI), and iOS (cinterop).

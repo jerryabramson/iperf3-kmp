@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 package com.jabramson.iperf3_network_tester_kmp.viewmodel
 
 
@@ -27,6 +34,7 @@ import com.jabramson.iperf3_network_tester_kmp.utils.resultsToCsv
 import com.jabramson.iperf3_network_tester_kmp.utils.shareCsv
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UploadDownload.isDownload
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -178,6 +186,11 @@ class Iperf3RunViewModel() : ViewModel() {
         stderr = ::saveErrorLine,                // errors from iperf3 callback
         onTestComplete = { completeTest() }      // test complete callback
     )
+
+    // The Job for the currently in-flight launch() -> runIperf3() coroutine, so
+    // cancel() can actually stop it (see cancel() below) instead of just
+    // flipping isRunning and leaving the coroutine to keep running orphaned.
+    private var runJob: Job? = null
 
     // Lazy: the platform database (see database/Database.<platform>.kt) is
     // itself cached behind its own `by lazy` singleton, so first touching
@@ -398,12 +411,8 @@ class Iperf3RunViewModel() : ViewModel() {
      * -- there is no user-facing Save button anymore. Safe to call more than
      * once per run: no-ops if already saved, or if there's nothing meaningful
      * to save yet (e.g. a run with zero samples).
-     * See the following documents for the complex requirements to support
-     * roomDB on KMP for all required platforms:
-     *    * <git_root>/
-     *         CODELAB_ROOMDB.md
-     *         ROOMDBPLAN.md
-     *         ROOMDBPLAN.docx
+     * See CLAUDE.md's "Room + KMP SQLite persistence" section for the
+     * complex requirements to support roomDB on KMP for all required platforms.
      */
     fun saveResult(time: Double) {
         if (_uiExecutionDataStateFlow.value.isSaved) return
@@ -438,6 +447,12 @@ class Iperf3RunViewModel() : ViewModel() {
      * Launch the iperf3 binary (notice that this is an asynchronous operation).
      */
     fun launch() {
+        // Belt-and-suspenders: launchOrCancel()'s isRunning check (above) is
+        // what normally prevents a second launch() while one is in flight,
+        // but that's an indirect invariant relying on state staying in sync.
+        // Cancelling any stale job here too means launch() can never leave
+        // two runJob coroutines alive, even if that guard is ever bypassed.
+        runJob?.cancel()
 
         _uiInputDataStateFlow.update {
             it.copy(
@@ -489,7 +504,7 @@ class Iperf3RunViewModel() : ViewModel() {
        */
         Log.d(tag, "Async Launch Started")
 
-        viewModelScope.launch { runIperf3() }
+        runJob = viewModelScope.launch { runIperf3() }
 
         Log.d(tag, "Async Launch Completed")
     }
@@ -513,6 +528,10 @@ class Iperf3RunViewModel() : ViewModel() {
      */
     fun cancel() {
         Log.d(tag, "Async cancel Started")
+        // Actually stop the in-flight launch() coroutine -- without this, a
+        // fast Run->Cancel->Run could leave the first run's coroutine alive
+        // in the background, racing a second run on the shared executor.
+        runJob?.cancel()
         _uiExecutionDataStateFlow.update {
             it.copy(
                 returnCode = -1,
@@ -736,9 +755,9 @@ class Iperf3RunViewModel() : ViewModel() {
      * Called at the start of the composable view.
      * We No longer use this technique with KMP+roomDB+sqlite.
      *
-     * See the following document/section for details:
-     *    <git_root>/ROOMDBPLAN.md
-     *        3. Android Context — this app has no DI container to lean on
+     * Room's Android driver gets its Context from AndroidAppContextHolder
+     * instead (set once in MainActivity.onCreate()) -- this app has no DI
+     * container to lean on. See CLAUDE.md's "Room + KMP SQLite persistence".
      */
     fun setContext(context: String) {  //Context) {
         _uiExecutionDataStateFlow.update {

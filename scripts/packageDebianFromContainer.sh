@@ -1,21 +1,29 @@
 #!/usr/bin/env bash
+#
+# Copyright (c) 2026, Jerold Abramson
+#
+# This source code is licensed under the BSD 3-Clause License found in
+# the LICENSE file in the root directory of this source tree.
+#
+
 set -e
+
+# Every path below (the bind mount, the build context, third_party/) is relative
+# to the repo root, wherever this is invoked from.
+cd "$(dirname "$0")/.." >/dev/null   # quiet even when CDPATH is set
 
 # Don't let interactive stuff interfere with us
 unset PROMPT_COMMAND PS0 PS2 PS3 PS4 PS5
 export PS1="$ "
 
-# Builds an RPM (.rpm) package inside a container, for hosts that can't
-# natively produce one - primarily non-Linux hosts like macOS (Debian/Ubuntu
-# and Fedora/RHEL can both build their own native package format directly;
-# see README.md's packaging table). This is the RPM-side counterpart to
-# packageDebianFromContainer.sh.
+# Builds a Debian (.deb) package inside a container, for hosts that can't
+# natively produce one (Fedora/RHEL, and non-Linux hosts like macOS).
 #
 # Verified on:
-#   - Fedora x86_64 (Podman) - jpackage's rpmbuild output confirmed to match
-#     the glob below (iperf3kmp-1.0.0-1.x86_64.rpm)
+#   - Fedora aarch64 (Podman)   - original development target
+#   - Fedora x86_64 (Podman)
 #   - macOS (Apple Silicon, Docker Desktop) - native arm64 Linux VM, produced
-#     iperf3kmp-1.0.0-1.aarch64.rpm
+#     iperf3kmp_1.0.0_arm64.deb
 
 # --- Container engine detection (Podman or Docker) ---
 if command -v podman >/dev/null 2>&1; then
@@ -28,7 +36,7 @@ else
 fi
 echo "=== Using container engine: $ENGINE ==="
 
-IMAGE_TAG=compose-rpm-builder
+IMAGE_TAG=compose-deb-builder
 if [ "$ENGINE" = podman ]; then
     IMAGE_REF="localhost/$IMAGE_TAG"
 else
@@ -78,7 +86,7 @@ if [ "${FREE_KB:-0}" -lt 8000000 ]; then
 fi
 
 echo "=== Building fresh image container layer ==="
-$ENGINE build --no-cache -t "$IMAGE_TAG" -f Dockerfile.rpm .
+$ENGINE build --no-cache -t "$IMAGE_TAG" -f scripts/Dockerfile.deb .
 
 # third_party/iperf's ./configure output (iperf_config.h/version.h,
 # gitignored) is arch/OS-specific and cached by compileIperf3Jvm as a
@@ -93,13 +101,13 @@ echo "=== Clearing stale third_party/iperf configure output ==="
 rm -f third_party/iperf/src/iperf_config.h third_party/iperf/src/version.h
 
 echo "=== Compiling native package targets ==="
-$ENGINE run --rm --pull=never -v "$VOLUME_SPEC" "$IMAGE_REF" ./gradlew :desktopApp:packageRpm
+$ENGINE run --rm --pull=never -v "$VOLUME_SPEC" "$IMAGE_REF" ./gradlew :desktopApp:packageDeb
 
 # Guard: the app's own native libraries must not need a newer glibc than the
-# oldest supported distro (RHEL 9 family = 2.34). Compilers on newer bases can
+# oldest supported distro (Ubuntu 22.04 = 2.35). Compilers on newer bases can
 # reference e.g. GLIBC_2.38 (__isoc23_strtol) and the package then fails to
 # load on older systems.
-MAX_GLIBC_ALLOWED=2.34
+MAX_GLIBC_ALLOWED=2.35
 echo "=== Checking native libraries' glibc requirement (max $MAX_GLIBC_ALLOWED) ==="
 MAX_GLIBC_FOUND=$($ENGINE run --rm --pull=never -v "$VOLUME_SPEC" "$IMAGE_REF" sh -c \
     'for f in shared/build/generated/*Resources/*/linux-*/*.so; do objdump -T "$f"; done | grep -o "GLIBC_[0-9.]*" | sed "s/GLIBC_//" | sort -Vu | tail -1')
@@ -109,20 +117,19 @@ if [ -n "$MAX_GLIBC_FOUND" ] && [ "$(printf '%s\n%s\n' "$MAX_GLIBC_FOUND" "$MAX_
     exit 1
 fi
 
-OUT_DIR="$(pwd)/desktopApp/build/compose/binaries/main/rpm"
+OUT_DIR="$(pwd)/desktopApp/build/compose/binaries/main/deb"
 
 echo "=== Verifying generated package payload ==="
 set -x
 /bin/ls -ls "$OUT_DIR"
 set +x
 
-# RPM's arch suffix (x86_64/aarch64 - uname-style, NOT amd64/arm64 like
-# Debian's) depends on the container's arch - glob for it rather than
-# guessing.
-RPM_FILE="$(find "$OUT_DIR" -maxdepth 1 -name 'iperf3kmp-1.0.0-1.*.rpm' -print -quit)"
-if [ -z "$RPM_FILE" ]; then
-    echo "ERROR: Expected .rpm payload not found in $OUT_DIR!"
+# Debian's arch suffix (amd64/arm64) depends on the container's arch, not
+# the host's raw `uname -m` string - so glob for it rather than guessing.
+DEB_FILE="$(find "$OUT_DIR" -maxdepth 1 -name 'iperf3kmp_1.0.0_*.deb' -print -quit)"
+if [ -z "$DEB_FILE" ]; then
+    echo "ERROR: Expected .deb payload not found in $OUT_DIR!"
     exit 1
 fi
 
-echo "SUCCESS: Build process complete! -> $RPM_FILE"
+echo "SUCCESS: Build process complete! -> $DEB_FILE"

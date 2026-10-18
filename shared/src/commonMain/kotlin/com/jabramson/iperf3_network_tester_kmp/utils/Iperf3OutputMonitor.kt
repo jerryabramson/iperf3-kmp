@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 package com.jabramson.iperf3_network_tester_kmp.utils
 
 //import android.annotation.SuppressLint
@@ -110,7 +117,7 @@ class Iperf3OutputMonitor {
             val id = cleanLine.substring(firstLeftBracket + 1, firstRightBracket).trim()
             val restOfLine = cleanLine.substring(firstRightBracket + 1).split(Regex("[ \\t]+"))
             // Connection-info line (e.g. "[ ID ] Interval...")
-            if (id.lowercase().equals("id")) {
+            if (id.lowercase() == "id") {
                 if (!gathered) {
                     gathered = true
                     currentIperf3RunningState.intervalNumber = 0
@@ -198,8 +205,11 @@ class Iperf3OutputMonitor {
                                         // samples counted below. Counting it too made totalSamples
                                         // read one higher than the actual number of 1-second
                                         // intervals (e.g. 11 for --time 10).
-                                        currentIperf3RunningState.currentBandWidth = UnitConvertedData(bitRateValue, bitRateString)
-                                        currentIperf3RunningState.currentAvg = UnitConvertedData(bitRateValue, bitRateUnitString)
+                                        // currentAvg deliberately stays the running mean of those
+                                        // samples: overwriting it with this row's whole-test rate
+                                        // mixed two different measures -- Avg could exceed Max --
+                                        // and disagreed with avgRawBitsPerSec, which is what gets saved.
+                                        currentIperf3RunningState.currentBandWidth = UnitConvertedData(bitRateValue, bitRateUnitString)
                                     }
                                     timeLabel = sendOrReceive
                                 }

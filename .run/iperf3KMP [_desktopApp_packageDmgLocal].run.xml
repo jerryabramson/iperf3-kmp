@@ -1,5 +1,5 @@
 <component name="ProjectRunConfigurationManager">
-  <configuration default="false" name="iperf3KMP [:desktopApp:packageReleaseDmg]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Packaging">
+  <configuration default="false" name="iperf3KMP [:desktopApp:packageDmgLocal]" type="GradleRunConfiguration" factoryName="Gradle" folderName="Packaging">
     <ExternalSystemSettings>
       <option name="executionName" />
       <option name="externalProjectPath" value="$PROJECT_DIR$" />
@@ -10,7 +10,7 @@
       </option>
       <option name="taskNames">
         <list>
-          <option value=":desktopApp:packageReleaseDmg" />
+          <option value=":desktopApp:packageDmgLocal" />
         </list>
       </option>
       <option name="vmOptions" />

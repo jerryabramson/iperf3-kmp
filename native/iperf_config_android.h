@@ -1,3 +1,16 @@
+// Copyright (c) 2026, Jerold Abramson
+//
+// This source code is licensed under the BSD 3-Clause License found in
+// the LICENSE file in the root directory of this source tree.
+//
+// Based on the iperf_config.h configuration header of iperf3 (ESnet,
+// https://github.com/esnet/iperf):
+//   iperf, Copyright (c) 2014-2026, The Regents of the University of
+//   California, through Lawrence Berkeley National Laboratory (subject to
+//   receipt of any required approvals from the U.S. Dept. of Energy).
+//   All rights reserved.
+// Used under iperf's BSD 3-Clause license; see third_party/iperf/LICENSE.
+
 /*
  * Hand-written iperf_config.h for Android (NDK cross-compile — no
  * ./configure run against the NDK toolchain). Socket-option availability

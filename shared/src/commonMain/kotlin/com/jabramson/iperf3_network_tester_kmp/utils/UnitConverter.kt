@@ -1,3 +1,10 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 package com.jabramson.iperf3_network_tester_kmp.utils
 
 import com.jabramson.iperf3_network_tester_kmp.utils.Units.UNIT_LENGTH
@@ -22,7 +29,24 @@ import com.jabramson.iperf3_network_tester_kmp.utils.Units.ZERO_VALUE_STRING
  */
 data class UnitConvertedData(val value: Double = 0.0, val unit: String = "") {
     override fun toString(): String = if (value <= 0.0) "" else  "$value $unit"
+    fun getUnit(preview: Boolean = false): String {
+        val unitLengthFormat = "%${UNIT_LENGTH}.${UNIT_LENGTH}s"
+        return if (!preview) formatString(unitLengthFormat, unit) else toString()
+    }
+    fun getValue(preview: Boolean = false): String {
+        if (!preview) {
+            if (value >= 0) {
+                return formatString("%10.2f", value)
+            } else {
+                return formatString("%-13.13s", "N/A")
+            }
+        }
+        else {
+            return "$value"
+        }
+    }
 }
+
 
 object Units {
     const val KBITS = 1024.0
@@ -32,13 +56,13 @@ object Units {
     const val BITS = 1.0
 
     const val UNIT_LENGTH = "Gbits/sec".length
-    //                      "seconds  "
-    //                      "Reported "
-    const val KB_UNIT = "Kbits/sec"
-    const val MB_UNIT = "Mbits/sec"
-    const val GB_UNIT = "Gbits/sec"
-    const val TB_UNIT = "Tbits/sec"
-    const val BITS_UNIT = "bits/sec"
+    const val KB_UNIT     = "Kbits/sec"
+    const val MB_UNIT     = "Mbits/sec"
+    const val GB_UNIT     = "Gbits/sec"
+    const val TB_UNIT     = "Tbits/sec"
+    const val BITS_UNIT   = "bits/sec "
+    const val EMPTY_UNIT  = "         "
+    
     const val ZERO_STRING = "----"
     const val ZERO_VALUE_STRING  ="----------"
 }

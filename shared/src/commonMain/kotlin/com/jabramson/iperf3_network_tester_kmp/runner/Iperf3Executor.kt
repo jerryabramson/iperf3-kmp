@@ -1,13 +1,24 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 package com.jabramson.iperf3_network_tester_kmp.runner
 
 import kotlin.concurrent.Volatile
+import kotlin.concurrent.atomics.AtomicInt
+import kotlin.concurrent.atomics.ExperimentalAtomicApi
 
+import com.jabramson.iperf3_network_tester_kmp.Iperf3KMPConstants
 import com.jabramson.iperf3_network_tester_kmp.model.Iperf3RunningState
 import com.jabramson.iperf3_network_tester_kmp.utils.Iperf3OutputMonitor
 import com.jabramson.iperf3_network_tester_kmp.utils.Log
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiInputData
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.DefaultInputData.HOST_NAME
 import kotlinx.coroutines.delay
+import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.Duration.Companion.seconds
 
 /**
@@ -36,6 +47,19 @@ class Iperf3Executor(
     @Volatile
     private var isIperfRunning = false
 
+    /*
+     * Guards the synthetic "invalid hostname" hint sequence in startTest()
+     * below against a fast Run->Cancel->Run: cancelTest() bumps this on every
+     * call (even when isIperfRunning is false, which it always is during that
+     * branch -- it never reaches the real test's isIperfRunning = true at
+     * line 227), invalidating whichever generation was in flight. Each step
+     * of that branch re-checks its own captured generation before writing to
+     * the shared iperf3OutputMonitor, so a cancelled, still-suspended
+     * coroutine can't add stray messages even if it resumes mid-delay.
+     */
+    @OptIn(ExperimentalAtomicApi::class)
+    private val generation = AtomicInt(0)
+
     fun setDebug(debug: Boolean) {
         IperfRunner.setDebug(if (debug) 1 else 0)
     }
@@ -58,8 +82,10 @@ class Iperf3Executor(
       *
       * @return 0 if cancellation was initiated successfully; -1 if no test was running or an error occurred.
       */
+    @OptIn(ExperimentalAtomicApi::class)
     fun cancelTest(): Int {
         var rc = 0
+        generation.incrementAndFetch()
         if (!isIperfRunning) return -1
 
         stderr(iperf3OutputMonitor.getCurrentLineResult(), "❌ Test Cancelled by User or System")
@@ -106,22 +132,30 @@ class Iperf3Executor(
       * @return 0 if the test completes successfully; -1 if validation fails, an exception occurs, or the
       * test is canceled or stalled.
       */
+    @OptIn(ExperimentalAtomicApi::class)
     suspend fun startTest(params: UiInputData): Int {
         Log.d(tag, "iperf3 JNI Bridge Starting")
 
         if (params.hostName == HOST_NAME) {
+            val myGeneration = generation.incrementAndFetch()
             iperf3OutputMonitor.reset(params)
             updateProgress(calcProgress(0.0.toFloat()), 0)
             stderr(iperf3OutputMonitor.getCurrentLineResult(), "❌ Error: Must supply a valid hostname")
             delay(duration = 1.seconds)
-            iperf3OutputMonitor.processCancelLine("iperf3 homepage at: https://software.es.net/iperf/")
-            stdout(iperf3OutputMonitor.getCurrentLineResult(), true)
+            if (generation.load() == myGeneration) {
+                iperf3OutputMonitor.processCancelLine(Iperf3KMPConstants.LinkableMessages.IPERF3_HOMEPAGE)
+                stdout(iperf3OutputMonitor.getCurrentLineResult(), true)
+            }
             delay(duration = 2.seconds)
-            iperf3OutputMonitor.processCancelLine("Public Server List: https://iperf.fr/iperf-servers.php")
-            stdout(iperf3OutputMonitor.getCurrentLineResult(), true)
-            delay(duration = 3.seconds)
-            onTestComplete()
-            updateProgress(1.0f, 100)
+            if (generation.load() == myGeneration) {
+                iperf3OutputMonitor.processCancelLine(Iperf3KMPConstants.LinkableMessages.PUBLIC_SERVER_LIST)
+                stdout(iperf3OutputMonitor.getCurrentLineResult(), true)
+            }
+            delay(duration = 2.seconds)
+            if (generation.load() == myGeneration) {
+                onTestComplete()
+                updateProgress(1.0f, 100)
+            }
             return -1
         }
 
@@ -153,12 +187,11 @@ class Iperf3Executor(
 
         }
 
-        // iperf3 itself allows up to MAX_STREAMS (128, iperf.h), but that many
-        // parallel connections is impractical on mobile hardware — a real test
-        // with 128 streams on a LAN took an extremely long time just to set up.
-        // 32 is a generous ceiling for what this app's use case actually needs.
-        if (parallelStreams !in 1..32) {
-            stderr(iperf3OutputMonitor.getCurrentLineResult(), "Invalid number of streams: $parallelStreams (must be 1-32)")
+        if (parallelStreams !in 1..Iperf3KMPConstants.MAX_PARALLEL_STREAMS) {
+            stderr(
+                iperf3OutputMonitor.getCurrentLineResult(),
+                "Invalid number of streams: $parallelStreams (must be 1-${Iperf3KMPConstants.MAX_PARALLEL_STREAMS})"
+            )
             updateProgress(1.0f, 100)
             return -1
         }

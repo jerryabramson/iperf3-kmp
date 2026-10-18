@@ -9,7 +9,9 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 - **GUI and CLI** — the desktop build ships both a Compose GUI and a standalone CLI tool.
 - **Native installers** — `.dmg`, `.msi`, `.deb`, and `.rpm` packages for each desktop OS.
 
-<img alt="iPerf3 Network Tester" src="iperf3_test_and_history.png" title="iperf3 Network Tester"/>
+<img alt="iPerf3 Network Tester" src="docs/images/iperf3_test_and_history.png" title="iperf3 Network Tester"/>
+
+**Documentation:** see [docs/README.md](docs/README.md) for an index of the architecture, per-platform build, and research docs.
 
 ## Platforms Supported
 1. Android<br>
@@ -174,14 +176,10 @@ $ANDROID_HOME/platform-tools/adb shell am start \
  * Easiest is opening [iosApp/iosApp.xcodeproj](./iosApp/iosApp.xcodeproj) in Xcode and
  running from there
    * The application can also be built and launched on a Simulator entirely from the command line.
-   * no Xcode UI required.<br>
->[!WARNING]
->   * If the following error is displayed at build time, you need to open the application using Xcode, login to Apple developer, and enter the required `BundleID` 
->```shell
->>Task :shared:linkDebugFrameworkIosArm64
->warning: Cannot infer a bundle ID from packages of source files and exported dependencies, use the bundle name instead: Shared. Please specify the bundle ID explicitly using the -Xbinary=bundleId=<id> compiler flag.
->Cannot infer a bundle ID from packages of source files and exported dependencies, use the bundle name instead: Shared. Please specify the bundle ID explicitly using the -Xbinary=bundleId=<id> compiler flag.
->```
+   * no Xcode UI required.
+ * Simulator builds need no Apple account. To run on your own iPhone/iPad, put your Team ID and a bundle-ID prefix in a
+   gitignored `iosApp/Configuration/LocalSigning.xcconfig` (copy `LocalSigning.xcconfig.template`) — see
+   [docs/platform-builds/ios.md](./docs/platform-builds/ios.md#signing-setup-your-own-apple-team).<br>
 
 #### Build from command-line on macOS
 ```shell
@@ -271,7 +269,7 @@ per-platform install layout:
 
 #### Example Execution
 
-<img alt="command-line execution" src="./command-line images.png" title="Command-line execution"/>
+<img alt="command-line execution" src="docs/images/command-line%20images.png" title="Command-line execution"/>
 
 * See `desktopApp/.../cli/CliArgs.kt`'s `usage()` for the full flag list.
 * ANSI output works out of the box on Windows too, and falls back to plain text (no escape codes) when `TERM` looks like a dumb terminal, so redirected-to-a-file and CI/log-capture output stays readable.
@@ -286,14 +284,18 @@ per-platform install layout:
 | Platform                                                                                                                   | task                               |
 |----------------------------------------------------------------------------------------------------------------------------|------------------------------------|
 | macOS                                                                                                                      | ./gradlew :desktopApp:packageDmg   |
+| macOS — local dev build, skips notarization (see important note below)                                                   | ./gradlew :desktopApp:packageDmgLocal |
 | Debian/Ubuntu Linux x86_64                                                                                                 | ./gradlew :desktopApp:packageDeb   |
 | Fedora/Red Hat Linux x86_64 *                                                                                              | ./gradlew :desktopApp:packageRpm   |
 | Fedora/Red Hat aarch64 *                                                                                                   | ./gradlew :desktopApp:packageRpm   |
-| Debian/Ubuntu Linux x86_64 or aarch64 - on a non-Debian host (Fedora/RHEL, or macOS with Docker Desktop)                   | packageDebianFromContainer.sh      |
-| Fedora/RHEL x86_64 or aarch64 - on a non-RPM host (Debian/Ubuntu, or macOS with Docker Desktop)                            | packageRpmFromContainer.sh         |
+| Debian/Ubuntu Linux x86_64 or aarch64 - on a non-Debian host (Fedora/RHEL, or macOS with Docker Desktop)                   | scripts/packageDebianFromContainer.sh |
+| Fedora/RHEL x86_64 or aarch64 - on a non-RPM host (Debian/Ubuntu, or macOS with Docker Desktop)                            | scripts/packageRpmFromContainer.sh    |
 | Windows x86_64                                                                                                             | gradlew.bat :desktopApp:packageMsi |
 | Windows ARM64 (native ARM64 JVM; bundled `iperf3.exe` is x86_64 under Prism emulation — see WINDOWS_ARM64_IPERF3_PLAN.md)  | gradlew.bat :desktopApp:packageMsi |
 
+
+>[!IMPORTANT]
+>> `packageDmg` always runs a real `notarytool submit --wait` round trip to Apple's notarization service afterward (when `desktopApp.macNotarizationProfile` is configured) — this can take a while, and Apple's notary service enforces its own rate limits, so running `packageDmg` repeatedly in quick succession during local iteration risks hitting them. Use `./gradlew :desktopApp:packageDmgLocal` instead for local testing: same signed `.dmg`, but it skips notarization/stapling entirely. Only use plain `packageDmg` when you actually intend to distribute the result — a `packageDmgLocal` build isn't notarized, so Gatekeeper will flag it for anyone it's downloaded to.
 
 >[!TIP]
 >> _Both container-based scripts auto-detect Podman or Docker (whichever is on `PATH`) and build a native, non-emulated Linux container matching the host's CPU - including on Apple Silicon or Intel Macs via Docker Desktop, since it runs a real Linux VM matching the host architecture. Verified via Podman on Fedora x86_64 and Fedora aarch64, and via Docker Desktop on macOS (Apple Silicon) producing both `iperf3kmp_1.0.0_arm64.deb` and `iperf3kmp-1.0.0-1.aarch64.rpm`._

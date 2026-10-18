@@ -1,9 +1,16 @@
+/*
+ * Copyright (c) 2026, Jerold Abramson
+ *
+ * This source code is licensed under the BSD 3-Clause License found in
+ * the LICENSE file in the root directory of this source tree.
+ */
+
 package com.jabramson.iperf3_network_tester_kmp.cli
 
 /**
  * Minimal ANSI terminal helper for [CliRunner]'s live command-line output.
  *
- * Same technique (and the same "is this terminal ANSI-capable" heuristic) as the
+ * The same technique (and the same "is this terminal ANSI-capable" heuristic) as the
  * hand-rolled `AnsiCodes`/`TerminalType` classes in
  * https://github.com/jerryabramson/BandWidthTester, a earlier standalone iperf3
  * CLI wrapper this project's CLI mode is modeled on: a handful of raw escape
@@ -35,6 +42,30 @@ object AnsiTerminal {
             !(term.isNullOrEmpty() || term.equals("dumb", ignoreCase = true))
         }
     }
+
+    fun setColumnWidth() {
+        width = System.getenv("COLUMNS")?.trim()?.toIntOrNull()?.takeIf { it > 0 }
+            ?: sttyColumns()
+            ?: 80
+    }
+
+    /** Fallback for when `COLUMNS` isn't exported (many shells only set it as a
+     * shell variable; `ssh host cmd` and cron never have it): ask the
+     * controlling terminal directly. Null on Windows, with no tty (output
+     * redirected, IDE/Gradle runs), or on any failure. */
+    private fun sttyColumns(): Int? {
+        if ((System.getProperty("os.name") ?: "").startsWith("Windows", ignoreCase = true)) return null
+        return try {
+            val process = ProcessBuilder("sh", "-c", "stty size < /dev/tty").redirectErrorStream(true).start()
+            val output = process.inputStream.bufferedReader().readText().trim()
+            if (process.waitFor() != 0) null
+            else output.split(" ").getOrNull(1)?.toIntOrNull()?.takeIf { it > 0 }
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    var width = 80
 
     private const val ESC = "\u001B"
 
@@ -113,5 +144,9 @@ object AnsiTerminal {
     fun horizontalRule(width: Int): String {
         val ch = if (isAnsi) "─" else "-"
         return ch.repeat(width)
+    }
+
+    fun horizontalRule(): String {
+        return horizontalRule(width)
     }
 }
