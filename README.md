@@ -177,13 +177,6 @@ $ANDROID_HOME/platform-tools/adb shell am start \
  * Simulator builds need no Apple account. To run on your own iPhone/iPad, put your Team ID and a bundle-ID prefix in a
    gitignored `iosApp/Configuration/LocalSigning.xcconfig` (copy `LocalSigning.xcconfig.template`) — see
    [docs/platform-builds/ios.md](./docs/platform-builds/ios.md#signing-setup-your-own-apple-team).<br>
->[!WARNING]
->   * If the following error is displayed at build time, you need to open the application using Xcode, login to Apple developer, and enter the required `BundleID` 
->```shell
->>Task :shared:linkDebugFrameworkIosArm64
->warning: Cannot infer a bundle ID from packages of source files and exported dependencies, use the bundle name instead: Shared. Please specify the bundle ID explicitly using the -Xbinary=bundleId=<id> compiler flag.
->Cannot infer a bundle ID from packages of source files and exported dependencies, use the bundle name instead: Shared. Please specify the bundle ID explicitly using the -Xbinary=bundleId=<id> compiler flag.
->```
 
 #### Build from command-line on macOS
 ```shell

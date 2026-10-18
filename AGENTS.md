@@ -59,7 +59,7 @@ No lint/typecheck commands are configured. Test sources: `shared/src/{commonTest
 
 **iOS**
 - **Deliberately ARM-only** (`iosArm64` + `iosSimulatorArm64`; xcodeproj hardcodes `ARCHS = arm64`) — don't "fix" it to a universal arch list.
-- Deployment target **18.2** lives in two places (`shared/build.gradle.kts:iperf3IosDeploymentTarget` + xcodeproj `IPHONEOS_DEPLOYMENT_TARGET`) — change both.
+- Deployment target **18.5** lives in two places (`shared/build.gradle.kts:iperf3IosDeploymentTarget` + xcodeproj `IPHONEOS_DEPLOYMENT_TARGET`) — change both.
 - `-lsqlite3` in `OTHER_LDFLAGS` at the **target level** of `project.pbxproj` is required (Shared.framework is static).
 - `project.pbxproj` must keep `DEVELOPMENT_TEAM = "${TEAM_ID}"` — picking a team in Xcode's Signing UI writes a real ID into it; check the diff.
 

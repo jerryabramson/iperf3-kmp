@@ -4,7 +4,7 @@
 
 ## Prerequisites
 - Common setup: [PLATFORM_BUILD_NOTES.md](../../PLATFORM_BUILD_NOTES.md).
-- Xcode with the iOS SDK. Deployment target is **18.2**; don't lower it without changing both `shared/build.gradle.kts:iperf3IosDeploymentTarget` and the xcodeproj's `IPHONEOS_DEPLOYMENT_TARGET`.
+- Xcode with the iOS SDK. Deployment target is **18.5** (raised from 18.2: Compose's bundled Skiko ICU data object is tagged iOS 18.5, so anything lower makes Xcode warn "built for newer iOS-simulator version"). Change it only by updating both `shared/build.gradle.kts:iperf3IosDeploymentTarget` and the xcodeproj's `IPHONEOS_DEPLOYMENT_TARGET`.
 - ARM-only by policy: `iosArm64` and `iosSimulatorArm64`. No Intel simulator.
 
 ## Signing setup (your own Apple team)
