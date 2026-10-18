@@ -104,12 +104,12 @@ Where each platform's data actually lands, if you need to inspect it directly (e
 
 ### Application icon
 
-Deployed to all three targets from `ic_launcher-playstore.png` (512×512, **not** 1024×1024 — iOS upscales at runtime and may look slightly soft on Retina):
+Deployed to all three targets from `ic_launcher-playstore.png` (512×512, **not** 1024×1024 — so the iOS 1024×1024 files below are `sips` upscales and may look slightly soft on Retina):
 
 | Target | Icon file |
 |--------|-----------|
 | Android | `androidApp/src/main/res/mipmap-{density}/ic_launcher*.webp` + `mipmap-anydpi-v26/ic_launcher*.xml` + `values/ic_launcher_background.xml` (#0F1E31 navy) |
-| iOS | `iosApp/iosApp/Assets.xcassets/AppIcon.appiconset/app-icon-512.png` |
+| iOS | `iosApp/iosApp/Assets.xcassets/AppIcon.appiconset/app-icon-1024{,-dark,-tinted}.png` — Xcode's single-size "universal" icon slot **only** accepts 1024×1024; a 512×512 entry is silently ignored and the build then warns that the 60x60@2x / 76x76@2x / 83.5x83.5@2x / 1024 App Store icons are all missing |
 | Desktop | `desktopApp/src/main/resources/app-icon.png` (in-app window icon, via `Window(icon = ...)` in `main.kt` — see below) |
 
 **In-app window icon vs. packaged installer icon are two separate mechanisms — both must be set, and jpackage's icon needs a platform-specific format, not a raw PNG:**
