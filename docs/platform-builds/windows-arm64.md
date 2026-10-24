@@ -48,6 +48,24 @@ not possible to use the currently selected Gradle JVM…"). Remove that JDK from
 Structure → SDKs, or uninstall it. While the app runs, check that the Gradle daemon and the app are
 on `~\.gradle\jdks\jetbrains_s_r_o_-25-aarch64-windows*`.
 
+## Android development on Windows on ARM
+Building the Android app works on this host. On 2026-10-24, `gradlew.bat :androidApp:installDebug`
+built the app and installed it on a physical phone (moto g stylus 2025) over USB/adb. That SDK had
+platform `android-37.0`, build-tools `37.0.0`, NDK `28.2`/`30.0` and CMake `3.22.1`.
+
+**Use a physical device: no Android emulator runs on Windows on ARM (checked 2026-10-24).**
+- **Google's Android Emulator:** no Windows ARM64 host build. The latest release notes (37.2.12,
+  Oct 1 2026) don't mention Windows on ARM. ARM64 hosts are supported only on Linux and Apple
+  Silicon.
+- **BlueStacks:** supports Windows x86/x64 and macOS, but not Windows on ARM.
+- **Community port** [bjorkepoc/android-emulator-winarm64](https://github.com/bjorkepoc/android-emulator-winarm64):
+  only boots a plain ARM64 Linux kernel so far. It doesn't boot Android yet and has no release.
+- **WSABuilds** (community repackaging of Microsoft's discontinued Windows Subsystem for Android)
+  runs Android apps on ARM laptops but isn't a development emulator. It's unofficial.
+
+To re-check, search the [emulator release notes](https://developer.android.com/studio/releases/emulator)
+for "Windows" + "ARM64", and look at the community port's Releases page.
+
 ## Verify
 - Install the MSI and run a test.
 - `iperf3.exe` and `cygwin1.dll` are in `<install dir>\app\resources\`; `iperf3.exe --version` prints `CYGWIN_NT-10.0-...-ARM64` (the OS, not the exe's architecture).
