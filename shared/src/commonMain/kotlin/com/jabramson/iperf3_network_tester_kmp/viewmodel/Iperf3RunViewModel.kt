@@ -197,14 +197,13 @@ class Iperf3RunViewModel() : ViewModel() {
     // instance instead of recreating it. First access happens inside
     // init{}'s Dispatchers.Default launch below (the startup hasHistory
     // check), keeping the (blocking) Room setup off the main thread.
+    //
+    // NOTE: For Windows on Arm this might actually result in a null return, which is used
+    // subsequently to disable DB operations
     private val resultDataRepository: ResultDataRepository? by lazy {
         val resultDataRepository = getResultDatabase()
-        if (resultDataRepository != null) {
-            ResultDataRepository(getResultDatabase()!!.resultDataEntityDao())
-        } else {
-            Log.e(tag, "Windows on Arm has no SQLite Driver!")
-        }
-        return@lazy null
+        if (resultDataRepository != null) ResultDataRepository(resultDataRepository.resultDataEntityDao())
+        else return@lazy null
     }
 
     /**
@@ -288,7 +287,6 @@ class Iperf3RunViewModel() : ViewModel() {
      */
     fun showHistory() {
         if (_uiExecutionDataStateFlow.value.isRunning) return
-        if (resultDataRepository == null) return
         _currentScreenStateFlow.update { AppScreen.History }
         viewModelScope.launch(Dispatchers.Default) {
             try {
@@ -313,7 +311,6 @@ class Iperf3RunViewModel() : ViewModel() {
      * History screen's contents, plus the top bar hasHistory flag.
      */
     fun deleteHistoryItem(guid: String) {
-        if (resultDataRepository == null) return
         viewModelScope.launch(Dispatchers.Default) {
             try {
                 resultDataRepository!!.deleteById(guid)
@@ -335,7 +332,6 @@ class Iperf3RunViewModel() : ViewModel() {
      * share sheet/file dialog must happen on the calling (UI) thread anyway.
      */
     fun exportHistoryCsv() {
-        if (resultDataRepository == null) return
         val results = _historyResultsStateFlow.value
         if (results.isEmpty()) return
         try {
@@ -425,30 +421,29 @@ class Iperf3RunViewModel() : ViewModel() {
      * complex requirements to support roomDB on KMP for all required platforms.
      */
     fun saveResult(time: Double) {
-        if (resultDataRepository == null) return
         if (_uiExecutionDataStateFlow.value.isSaved) return
         viewModelScope.launch(Dispatchers.Default) {
-            if (_uiExecutionDataStateFlow.value.iperf3RunningState.totalSamples > 0) {
-                val current =
-                    toEntity(_uiExecutionDataStateFlow.value.iperf3RunningState, time)
-                if (current.reportedIterations > 0) {
-                    _uiExecutionDataStateFlow.update {
-                        it.copy(isSaving = true)
-                    }
-                    try {
-                        if (resultDataRepository != null) {
+            if (resultDataRepository != null) {
+                if (_uiExecutionDataStateFlow.value.iperf3RunningState.totalSamples > 0) {
+                    val current =
+                        toEntity(_uiExecutionDataStateFlow.value.iperf3RunningState, time)
+                    if (current.reportedIterations > 0) {
+                        _uiExecutionDataStateFlow.update {
+                            it.copy(isSaving = true)
+                        }
+                        try {
                             resultDataRepository!!.insert(current)
-                        }
-                        _uiExecutionDataStateFlow.update {
-                            it.copy(isSaved = true, isSaving = false, isDatabaseCreated = true)
-                        }
-                        refreshHasHistory()
-                    } catch (e: Exception) {
-                        _uiExecutionDataStateFlow.update {
-                            it.copy(
-                                isSaving = false,
-                                errorLines = (it.errorLines + "Failed to save result: ${e.message}").toMutableList()
-                            )
+                            _uiExecutionDataStateFlow.update {
+                                it.copy(isSaved = true, isSaving = false, isDatabaseCreated = true)
+                            }
+                            refreshHasHistory()
+                        } catch (e: Exception) {
+                            _uiExecutionDataStateFlow.update {
+                                it.copy(
+                                    isSaving = false,
+                                    errorLines = (it.errorLines + "Failed to save result: ${e.message}").toMutableList()
+                                )
+                            }
                         }
                     }
                 }
