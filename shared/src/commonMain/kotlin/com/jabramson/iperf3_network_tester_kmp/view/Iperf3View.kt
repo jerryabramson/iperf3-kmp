@@ -51,8 +51,9 @@ import com.jabramson.iperf3_network_tester_kmp.viewmodel.Iperf3RunViewModel
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiExecutionData
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiInputData
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.jabramson.iperf3_network_tester_kmp.Platform
 import com.jabramson.iperf3_network_tester_kmp.getNotch
-
+import com.jabramson.iperf3_network_tester_kmp.getPlatform
 
 
 /**
@@ -210,9 +211,9 @@ fun RunIperf3Screen(viewModel: Iperf3RunViewModel = viewModel { Iperf3RunViewMod
 
 @Composable
 fun isWideWindow(): Boolean {
+    if (getPlatform().name.contains("Desktop", ignoreCase = true)) return true
     val windowInfo = LocalWindowInfo.current
     val density = LocalDensity.current
-
     val widthDp = with(density) {
         windowInfo.containerSize.width.toDp()
     }
@@ -221,6 +222,7 @@ fun isWideWindow(): Boolean {
 
 @Composable
 fun isTallWindow(): Boolean {
+    if (getPlatform().name.contains("Desktop", ignoreCase = true)) return true
     val windowInfo = LocalWindowInfo.current
     val density = LocalDensity.current
 
@@ -231,6 +233,7 @@ fun isTallWindow(): Boolean {
 }
 @Composable
 fun isTinyWindow(): Boolean {
+    if (getPlatform().name.contains("Desktop", ignoreCase = true)) return false
     return !isTallWindow() && !isWideWindow()
 }
 

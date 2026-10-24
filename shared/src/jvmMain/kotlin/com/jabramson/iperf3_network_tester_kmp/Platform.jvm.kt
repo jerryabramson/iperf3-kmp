@@ -23,7 +23,7 @@ class JVMPlatform : Platform {
             }
         }
     else os?: "Unknown"
-    override val name: String = "Operating System=$osName; Java ${System.getProperty("java.version")}"
+    override val name: String = "Desktop: Operating System='$osName'; Java Version: ${System.getProperty("java.version")}"
 }
 
 class JVMUUID : AppUUID {
