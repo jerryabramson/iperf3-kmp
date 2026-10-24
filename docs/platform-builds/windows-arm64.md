@@ -1,14 +1,15 @@
 # Build: Windows ARM64 (`.msi`)
 
 **Status:** verified on a Windows 11 ARM64 VM (Parallels): the MSI builds, installs and runs
-real network tests. Save/History (Room/SQLite) does not work on this target — see the known
-limitation below.
+real network tests. `:desktopApp:run` also verified on real hardware (NVIDIA RTX Spark N1X
+laptop, 2026-10-24), from both the terminal and IntelliJ (see "IntelliJ IDEA" below).
+Save/History (Room/SQLite) is disabled on this target — see the known limitation below.
 
 The result is a **mixed-architecture** package: the JVM and `nativeformat.dll` are native ARM64, but the bundled `iperf3.exe` and `cygwin1.dll` are x86_64 (Cygwin has no ARM64 port) and run under Prism emulation. Whether emulation affects measured throughput is untested. Native `iperf3.exe` plan: [WINDOWS_ARM64_IPERF3_PLAN.md](../desktop/WINDOWS_ARM64_IPERF3_PLAN.md).
 
 ## Prerequisites
 Same as [windows-x86_64.md](windows-x86_64.md), with these differences:
-- **An ARM64 JDK on `JAVA_HOME`** to run the Gradle launcher, e.g. `winget install Microsoft.OpenJDK.21 --architecture arm64`. Confirm `` prints `aarch64`. The launcher's architecture decides which JDK Gradle provisions for the build itself: `gradle/gradle-daemon-jvm.properties` (JetBrains 25) has a Windows ARM64 download, fetched automatically. No local edit of that file is needed any more (verified 2026-10-18; older notes said to delete a `toolchainVendor=AMAZON` line).
+- **An ARM64 JDK on `JAVA_HOME`** to run the Gradle launcher, e.g. `winget install Microsoft.OpenJDK.21 --architecture arm64`. Confirm `java -XshowSettings:properties -version 2>&1 | findstr os.arch` prints `aarch64`. The launcher's architecture decides which JDK Gradle provisions for the build itself: `gradle/gradle-daemon-jvm.properties` (JetBrains 25) has a Windows ARM64 download, fetched automatically. No local edit of that file is needed any more (verified 2026-10-18; older notes said to delete a `toolchainVendor=AMAZON` line).
 - **Do not** install an x64 JDK (e.g. winget's Corretto): Gradle would accept it and run the whole build emulated, producing x64 output.
 - **LLVM: ARM64 build.** `clang --version` should show `Target: aarch64-pc-windows-msvc`.
 - **Visual Studio Build Tools with the ARM64 build tools** (`Microsoft.VisualStudio.Component.VC.Tools.ARM64`).
@@ -21,6 +22,31 @@ gradlew.bat :desktopApp:run
 gradlew.bat :desktopApp:packageMsi          # desktopApp\build\compose\binaries\main\msi\iperf3KMP-1.0.0.msi
 ```
 The exe is staged under `appResources\windows-arm64\`; the Compose plugin chooses that folder name from the host architecture.
+
+## IntelliJ IDEA
+Gradle-type run configurations (e.g. `desktopApp [run]`) fail before Gradle even starts with:
+```
+Unknown host target: windows aarch64
+```
+This comes from IntelliJ itself, not the build: the bundled Kotlin plugin's native-debugger
+hook (`com.jetbrains.mpp.debugger.MPPDebugExecutionAware`) runs before every Gradle task and asks
+Kotlin/Native for the host platform, which has no Windows ARM64 support. The same tasks succeed
+from a terminal. The full stack trace is in `%LOCALAPPDATA%\JetBrains\IntelliJIdea<version>\log\idea.log`.
+
+**Fix (verified 2026-10-24, IntelliJ 2026.2.3):** Settings → Plugins → Installed → disable
+**Native Debugging Support**. IntelliJ also disables **Kotlin Multiplatform**, which depends on
+it; accept that. Restart. The hook only loads when Native Debugging Support is present. You
+lose the iOS run configuration and the other Kotlin Multiplatform plugin features, none of which
+work on Windows anyway. Plugin settings are per machine. The alternative is to keep the plugins
+and use the shell-script run configurations (`.run/gradlew_desktopAppRun.run.xml`).
+
+You don't need `org.gradle.java.home`. Because the repo has `gradle/gradle-daemon-jvm.properties`,
+IntelliJ's Gradle settings show **Gradle JVM criteria** (25 / JetBrains) instead of a JVM
+dropdown; leave those as they are. Set **Distribution** to **Wrapper**, not "Wrapper task". If an
+x64 JDK is installed, IntelliJ may fall back to it for the short-lived Gradle launcher ("It is
+not possible to use the currently selected Gradle JVM…"). Remove that JDK from File → Project
+Structure → SDKs, or uninstall it. While the app runs, check that the Gradle daemon and the app are
+on `~\.gradle\jdks\jetbrains_s_r_o_-25-aarch64-windows*`.
 
 ## Verify
 - Install the MSI and run a test.
@@ -35,6 +61,13 @@ The exe is staged under `appResources\windows-arm64\`; the Compose plugin choose
 
 **Status: accepted gap, documented 2026-10-09.** Everything else works on this target (build,
 install, run, real network tests); only Room/SQLite persistence fails.
+
+**Since 2026-10-24 the app handles this itself** instead of failing when it tries to open the
+database. `JVMPlatform.isWindowsOnArm` (`os.name` Windows + `os.arch` aarch64) makes
+`createSQLiteDriver()`/`getResultDatabase()` return `null`. It logs
+`Room Database not supported on Windows on Arm!` and skips every database operation in
+`Iperf3RunViewModel`. Tests run normally, results just aren't saved, and the History button
+never appears. The symptom below is what happened before that change.
 
 **Workaround (recommended when Save/History is needed): install the x86_64 `.msi` on Windows on
 Arm instead of the ARM64 one.** It runs under Prism emulation, and its SQLite works because the

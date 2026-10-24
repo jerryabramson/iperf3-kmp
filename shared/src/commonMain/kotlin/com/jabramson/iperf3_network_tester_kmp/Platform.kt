@@ -19,6 +19,9 @@ package com.jabramson.iperf3_network_tester_kmp
  */
 interface Platform {
     val name: String
+
+    /** True on the desktop (JVM) target. Use this rather than matching [name]. */
+    val isDesktop: Boolean get() = false
 }
 
 /**

@@ -6,7 +6,7 @@ Compact agent guide for `iperf3KMP`. **`CLAUDE.md` at the repo root is the singl
 
 Kotlin Multiplatform network-testing app (Android / iOS / desktop JVM), Compose Multiplatform UI, driving **real iperf3 3.21 in-process** via `libiperf` — JNI on Android + desktop, cinterop on iOS. Windows desktop is supported, but spawns a bundled Cygwin-built `iperf3.exe` subprocess instead of the in-process JNI path (`docs/desktop/WINDOWS_DECISION_REVERSAL_CASE_STUDY.md`). The desktop app also has a terminal CLI (`desktopApp/.../cli/`).
 
-Toolchain: Gradle **9.6.1** wrapper (always `./gradlew`, never system gradle), Kotlin **2.4.0**, Compose MP **1.11.1**, AGP 9.1.1, KSP 2.3.6. foojay-resolver auto-provisions the JDK.
+Toolchain: Gradle **9.7.1** wrapper (always `./gradlew`, never system gradle), Kotlin **2.4.0**, Compose MP **1.11.1**, AGP 9.1.1, KSP 2.3.6. foojay-resolver auto-provisions the JDK.
 
 ## Setup
 

@@ -198,12 +198,10 @@ class Iperf3RunViewModel() : ViewModel() {
     // init{}'s Dispatchers.Default launch below (the startup hasHistory
     // check), keeping the (blocking) Room setup off the main thread.
     //
-    // NOTE: For Windows on Arm this might actually result in a null return, which is used
-    // subsequently to disable DB operations
+    // NOTE: null on Windows on Arm (no SQLite driver there); every DB
+    // operation below returns early when it is.
     private val resultDataRepository: ResultDataRepository? by lazy {
-        val resultDataRepository = getResultDatabase()
-        if (resultDataRepository != null) ResultDataRepository(resultDataRepository.resultDataEntityDao())
-        else return@lazy null
+        getResultDatabase()?.let { ResultDataRepository(it.resultDataEntityDao()) }
     }
 
     /**
@@ -269,9 +267,8 @@ class Iperf3RunViewModel() : ViewModel() {
      */
     private suspend fun refreshHasHistory() {
         try {
-            _hasHistoryStateFlow.update {
-                resultDataRepository!!.getCount() > 0
-            }
+            val repository = resultDataRepository ?: return
+            _hasHistoryStateFlow.update { repository.getCount() > 0 }
         } catch (e: Exception) {
             // Leave hasHistory as-is; nothing sensible to show the user for a
             // background count failure, and saveResult()/showHistory() will
@@ -290,7 +287,8 @@ class Iperf3RunViewModel() : ViewModel() {
         _currentScreenStateFlow.update { AppScreen.History }
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                _historyResultsStateFlow.update { resultDataRepository!!.getAllResults() }
+                val repository = resultDataRepository ?: return@launch
+                _historyResultsStateFlow.update { repository.getAllResults() }
             } catch (e: Exception) {
                 _uiExecutionDataStateFlow.update {
                     it.copy(errorLines = (it.errorLines + "Failed to load history: ${e.message}").toMutableList())
@@ -313,8 +311,9 @@ class Iperf3RunViewModel() : ViewModel() {
     fun deleteHistoryItem(guid: String) {
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                resultDataRepository!!.deleteById(guid)
-                _historyResultsStateFlow.update { resultDataRepository!!.getAllResults() }
+                val repository = resultDataRepository ?: return@launch
+                repository.deleteById(guid)
+                _historyResultsStateFlow.update { repository.getAllResults() }
                 refreshHasHistory()
             } catch (e: Exception) {
                 _uiExecutionDataStateFlow.update {
@@ -423,27 +422,26 @@ class Iperf3RunViewModel() : ViewModel() {
     fun saveResult(time: Double) {
         if (_uiExecutionDataStateFlow.value.isSaved) return
         viewModelScope.launch(Dispatchers.Default) {
-            if (resultDataRepository != null) {
-                if (_uiExecutionDataStateFlow.value.iperf3RunningState.totalSamples > 0) {
-                    val current =
-                        toEntity(_uiExecutionDataStateFlow.value.iperf3RunningState, time)
-                    if (current.reportedIterations > 0) {
+            val repository = resultDataRepository ?: return@launch
+            if (_uiExecutionDataStateFlow.value.iperf3RunningState.totalSamples > 0) {
+                val current =
+                    toEntity(_uiExecutionDataStateFlow.value.iperf3RunningState, time)
+                if (current.reportedIterations > 0) {
+                    _uiExecutionDataStateFlow.update {
+                        it.copy(isSaving = true)
+                    }
+                    try {
+                        repository.insert(current)
                         _uiExecutionDataStateFlow.update {
-                            it.copy(isSaving = true)
+                            it.copy(isSaved = true, isSaving = false, isDatabaseCreated = true)
                         }
-                        try {
-                            resultDataRepository!!.insert(current)
-                            _uiExecutionDataStateFlow.update {
-                                it.copy(isSaved = true, isSaving = false, isDatabaseCreated = true)
-                            }
-                            refreshHasHistory()
-                        } catch (e: Exception) {
-                            _uiExecutionDataStateFlow.update {
-                                it.copy(
-                                    isSaving = false,
-                                    errorLines = (it.errorLines + "Failed to save result: ${e.message}").toMutableList()
-                                )
-                            }
+                        refreshHasHistory()
+                    } catch (e: Exception) {
+                        _uiExecutionDataStateFlow.update {
+                            it.copy(
+                                isSaving = false,
+                                errorLines = (it.errorLines + "Failed to save result: ${e.message}").toMutableList()
+                            )
                         }
                     }
                 }

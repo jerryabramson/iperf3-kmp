@@ -19,7 +19,7 @@ actual fun createSQLiteDriver(): SQLiteDriver? = NativeSQLiteDriver()
 actual fun getResultDatabase(): ResultDatabase? = IosResultDatabaseHolder.instance
 
 private object IosResultDatabaseHolder {
-    val instance: ResultDatabase by lazy {
+    val instance: ResultDatabase? by lazy {
         val documentDirectory = NSSearchPathForDirectoriesInDomains(
             directory = NSDocumentDirectory,
             domainMask = NSUserDomainMask,

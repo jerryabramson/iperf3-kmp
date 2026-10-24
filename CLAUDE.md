@@ -8,7 +8,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 `iperf3KMP` is a Kotlin Multiplatform (Android / iOS / Desktop-JVM) network-testing app UI built with Compose Multiplatform, developed as part of an independent software-engineering research study. All three targets now drive **real** iperf3 3.21 in-process via `libiperf` (JNI on Android/desktop, cinterop on iOS) — see "Native iperf3 client" below and `IPERF3_NATIVE_INTEGRATION.md`.
 
-Root project name: `iperf3KMP` (`settings.gradle.kts`). Gradle **9.6.1** (wrapper present) — use `./gradlew`, never system `gradle`. Kotlin **2.4.0**, Compose Multiplatform **1.11.1**, AGP **9.1.1**.
+Root project name: `iperf3KMP` (`settings.gradle.kts`). Gradle **9.7.1** (wrapper present) — use `./gradlew`, never system `gradle`. Kotlin **2.4.0**, Compose Multiplatform **1.11.1**, AGP **9.1.1**.
 
 ## Modules
 

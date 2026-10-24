@@ -7,22 +7,23 @@
 
 package com.jabramson.iperf3_network_tester_kmp
 
-import com.jabramson.iperf3_network_tester_kmp.utils.Log
 import java.util.UUID
 import java.time.LocalDateTime
 
 class JVMPlatform : Platform {
-    val arch: String? = System.getProperty("os.arch")
-    val os: String? = System.getProperty("os.name")
-    val osName =
-        if (os != null && arch != null) {
-            if (os.startsWith("Windows") && arch.startsWith("aarch64")) {
-                "WindowsOnArm"
-            } else {
-                os
-            }
-        }
-    else os?: "Unknown"
+    private val os: String = System.getProperty("os.name") ?: "Unknown"
+    private val arch: String = System.getProperty("os.arch") ?: ""
+
+    /**
+     * Windows on ARM64 (aarch64 JVM). androidx.sqlite's BundledSQLiteDriver
+     * ships no windows_arm64 native (2.7.0 has linux_x64/arm64, osx_arm64,
+     * windows_x64 only), so Room is disabled there.
+     */
+    val isWindowsOnArm: Boolean = os.startsWith("Windows") && arch == "aarch64"
+
+    private val osName: String = if (isWindowsOnArm) "WindowsOnArm" else os
+
+    override val isDesktop: Boolean = true
     override val name: String = "Desktop: Operating System='$osName'; Java Version: ${System.getProperty("java.version")}"
 }
 
@@ -41,10 +42,11 @@ class JVMCurrentTimeMillis : AppCurrentTimeMillis {
     override val value: Long = System.currentTimeMillis()
 }
 
-actual fun getPlatform():  Platform {
-    val platform = JVMPlatform()
-    return platform
-}
+// System properties don't change at runtime, so build this once rather than
+// on every call (getPlatform() is called from composables on recomposition).
+internal val jvmPlatform = JVMPlatform()
+
+actual fun getPlatform(): Platform = jvmPlatform
 
 actual fun getAppUUID(): AppUUID = JVMUUID()
 actual fun getAppLocalDateTime(): AppLocalDateTime = JVMLocalDateTime()
