@@ -11,10 +11,14 @@ import androidx.room.Room
 import androidx.sqlite.SQLiteDriver
 import androidx.sqlite.driver.bundled.BundledSQLiteDriver
 import com.jabramson.iperf3_network_tester_kmp.getPlatform
+import com.jabramson.iperf3_network_tester_kmp.utils.Log
 import java.io.File
 
 actual fun createSQLiteDriver(): SQLiteDriver? {
-    if (getPlatform().name.contains("Windows", ignoreCase = true)) {
+    val platform = getPlatform().name
+    System.err.println("createSQLiteDriver: Platform = '$platform'")
+    if (getPlatform().name.contains("WindowsOnArm", ignoreCase = true)) {
+        System.err.println("Windows on Arm, no SQLiteDriver!")
         return null
     }
     return BundledSQLiteDriver()
@@ -24,10 +28,11 @@ actual fun getResultDatabase(): ResultDatabase? = JvmResultDatabaseHolder.instan
 
 private object JvmResultDatabaseHolder {
     val instance: ResultDatabase? by lazy {
-        val dbDir = File(System.getProperty("user.home"), ".iperf3kmp").apply { mkdirs() }
-        val dbFile = File(dbDir, "${ResultDatabase.DBNAME}.db")
-        val osName = System.getProperty("os.name")
+        val osName = getPlatform().name
+        Log.e("JVM", "OS is $osName")
         if (!osName.startsWith("WindowsOnArm", ignoreCase = true)) {
+            val dbDir = File(System.getProperty("user.home"), ".iperf3kmp").apply { mkdirs() }
+            val dbFile = File(dbDir, "${ResultDatabase.DBNAME}.db")
             val resultDatabase = getRoomDatabase(Room.databaseBuilder<ResultDatabase>(dbFile.absolutePath))
             return@lazy resultDatabase
         } else {

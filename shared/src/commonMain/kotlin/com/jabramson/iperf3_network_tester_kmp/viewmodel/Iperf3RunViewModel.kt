@@ -39,6 +39,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
+
 /**
  * Utility object for identifying and validating upload or download operation types.
  * Provides helper functions to check if a given string represents an upload, download, or either.
@@ -197,11 +198,7 @@ class Iperf3RunViewModel() : ViewModel() {
     // init{}'s Dispatchers.Default launch below (the startup hasHistory
     // check), keeping the (blocking) Room setup off the main thread.
     private val resultDataRepository: ResultDataRepository? by lazy {
-        val resultDatabase = getResultDatabase()
-        if (resultDatabase != null) {
-            ResultDataRepository(resultDatabase.resultDataEntityDao())
-        }
-        return@lazy null
+        ResultDataRepository(getResultDatabase()!!.resultDataEntityDao())
     }
 
     /**
@@ -266,10 +263,6 @@ class Iperf3RunViewModel() : ViewModel() {
      * repeatedly -- e.g. after every save/delete -- since it's just a count().
      */
     private suspend fun refreshHasHistory() {
-        if (resultDataRepository == null) {
-            Log.w("History", "Room Database not supported on Windows on Arm!")
-            return
-        }
         try {
             _hasHistoryStateFlow.update {
                 resultDataRepository!!.getCount() > 0

@@ -7,6 +7,7 @@
 
 package com.jabramson.iperf3_network_tester_kmp
 
+import com.jabramson.iperf3_network_tester_kmp.utils.Log
 import java.util.UUID
 import java.time.LocalDateTime
 
@@ -40,7 +41,12 @@ class JVMCurrentTimeMillis : AppCurrentTimeMillis {
     override val value: Long = System.currentTimeMillis()
 }
 
-actual fun getPlatform(): Platform = JVMPlatform()
+actual fun getPlatform():  Platform {
+    val platform = JVMPlatform();
+    System.err.println("jvm Platform: " + platform.name)
+    return platform
+}
+
 actual fun getAppUUID(): AppUUID = JVMUUID()
 actual fun getAppLocalDateTime(): AppLocalDateTime = JVMLocalDateTime()
 actual fun getNotch(): Notch = JVMNotch()
