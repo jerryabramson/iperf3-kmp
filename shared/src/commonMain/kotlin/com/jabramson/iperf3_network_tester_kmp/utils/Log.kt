@@ -43,8 +43,11 @@ object Log {
         if (LogConfig.developerLoggingEnabled) platformLog('W', tag, message, null)
     }
 
+    /**
+     * Errors are always logged
+     */
     fun e(tag: String, message: String, throwable: Throwable? = null) {
-        if (LogConfig.developerLoggingEnabled) platformLog('E', tag, message, throwable)
+        platformLog('E', tag, message, throwable)
     }
 }
 

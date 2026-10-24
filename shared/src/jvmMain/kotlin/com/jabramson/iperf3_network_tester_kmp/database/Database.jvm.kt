@@ -15,10 +15,11 @@ import com.jabramson.iperf3_network_tester_kmp.utils.Log
 import java.io.File
 
 actual fun createSQLiteDriver(): SQLiteDriver? {
+    val tag = "createSQLiteDriver"
     val platform = getPlatform().name
-    System.err.println("createSQLiteDriver: Platform = '$platform'")
+    println("$tag: createSQLiteDriver: Platform = '$platform'")
     if (getPlatform().name.contains("WindowsOnArm", ignoreCase = true)) {
-        System.err.println("Windows on Arm, no SQLiteDriver!")
+        System.err.println("$tag: Windows on Arm, no SQLiteDriver!")
         return null
     }
     return BundledSQLiteDriver()
@@ -27,16 +28,16 @@ actual fun createSQLiteDriver(): SQLiteDriver? {
 actual fun getResultDatabase(): ResultDatabase? = JvmResultDatabaseHolder.instance
 
 private object JvmResultDatabaseHolder {
+    const val TAG = "JvmResultDatabaseHolder"
     val instance: ResultDatabase? by lazy {
         val osName = getPlatform().name
-        Log.e("JVM", "OS is $osName")
         if (!osName.startsWith("WindowsOnArm", ignoreCase = true)) {
             val dbDir = File(System.getProperty("user.home"), ".iperf3kmp").apply { mkdirs() }
             val dbFile = File(dbDir, "${ResultDatabase.DBNAME}.db")
             val resultDatabase = getRoomDatabase(Room.databaseBuilder<ResultDatabase>(dbFile.absolutePath))
             return@lazy resultDatabase
         } else {
-            println("Room Database not supported on Windows on Arm!")
+            Log.e(TAG,"Room Database not supported on Windows on Arm!")
         }
         return@lazy null
     }

@@ -42,8 +42,7 @@ class JVMCurrentTimeMillis : AppCurrentTimeMillis {
 }
 
 actual fun getPlatform():  Platform {
-    val platform = JVMPlatform();
-    System.err.println("jvm Platform: " + platform.name)
+    val platform = JVMPlatform()
     return platform
 }
 

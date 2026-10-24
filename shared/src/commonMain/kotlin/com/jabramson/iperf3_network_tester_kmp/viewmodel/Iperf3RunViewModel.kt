@@ -198,7 +198,13 @@ class Iperf3RunViewModel() : ViewModel() {
     // init{}'s Dispatchers.Default launch below (the startup hasHistory
     // check), keeping the (blocking) Room setup off the main thread.
     private val resultDataRepository: ResultDataRepository? by lazy {
-        ResultDataRepository(getResultDatabase()!!.resultDataEntityDao())
+        val resultDataRepository = getResultDatabase()
+        if (resultDataRepository != null) {
+            ResultDataRepository(getResultDatabase()!!.resultDataEntityDao())
+        } else {
+            Log.e(tag, "Windows on Arm has no SQLite Driver!")
+        }
+        return@lazy null
     }
 
     /**
