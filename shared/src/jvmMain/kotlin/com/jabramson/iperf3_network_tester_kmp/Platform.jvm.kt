@@ -11,7 +11,18 @@ import java.util.UUID
 import java.time.LocalDateTime
 
 class JVMPlatform : Platform {
-    override val name: String = "Java ${System.getProperty("java.version")}"
+    val arch: String? = System.getProperty("os.arch")
+    val os: String? = System.getProperty("os.name")
+    val osName =
+        if (os != null && arch != null) {
+            if (os.startsWith("Windows") && arch.startsWith("aarch64")) {
+                "WindowsOnArm"
+            } else {
+                os
+            }
+        }
+    else os?: "Unknown"
+    override val name: String = "Operating System=$osName; Java ${System.getProperty("java.version")}"
 }
 
 class JVMUUID : AppUUID {

@@ -11,13 +11,13 @@ import androidx.room.RoomDatabase
 import androidx.sqlite.SQLiteDriver
 import kotlinx.coroutines.Dispatchers
 
-expect fun createSQLiteDriver(): SQLiteDriver
+expect fun createSQLiteDriver(): SQLiteDriver?
 
 /* Each platform caches its own instance (see Database.<platform>.kt) so
  * this is safe to call repeatedly without recreating the database.
  */
 
-expect fun getResultDatabase(): ResultDatabase
+expect fun getResultDatabase(): ResultDatabase?
 
 /*
  * Dispatchers.IO isn't public on every Native/coroutines vfersion
@@ -31,9 +31,16 @@ expect fun getResultDatabase(): ResultDatabase
  * objects and just drop/recreate on every version bump. Revisit if that
  * changes.
  */
-fun getRoomDatabase(builder: RoomDatabase.Builder<ResultDatabase>): ResultDatabase =
-    builder
-        .setDriver(createSQLiteDriver())
-        .setQueryCoroutineContext(Dispatchers.Default)
-        .fallbackToDestructiveMigration(dropAllTables = true)
-        .build()
+fun getRoomDatabase(builder: RoomDatabase.Builder<ResultDatabase>): ResultDatabase? {
+    val sql = createSQLiteDriver()
+    if (sql != null) {
+        val resultDatabase =
+            builder
+                .setDriver(sql)
+                .setQueryCoroutineContext(Dispatchers.Default)
+                .fallbackToDestructiveMigration(dropAllTables = true)
+                .build()
+        return resultDatabase
+    }
+    return null
+}

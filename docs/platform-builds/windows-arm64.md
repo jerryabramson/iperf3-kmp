@@ -8,7 +8,7 @@ The result is a **mixed-architecture** package: the JVM and `nativeformat.dll` a
 
 ## Prerequisites
 Same as [windows-x86_64.md](windows-x86_64.md), with these differences:
-- **An ARM64 JDK on `JAVA_HOME`** to run the Gradle launcher, e.g. `winget install Microsoft.OpenJDK.21 --architecture arm64`. Confirm `java -XshowSettings:properties -version 2>&1 | findstr os.arch` prints `aarch64`. The launcher's architecture decides which JDK Gradle provisions for the build itself: `gradle/gradle-daemon-jvm.properties` (JetBrains 25) has a Windows ARM64 download, fetched automatically. No local edit of that file is needed any more (verified 2026-10-18; older notes said to delete a `toolchainVendor=AMAZON` line).
+- **An ARM64 JDK on `JAVA_HOME`** to run the Gradle launcher, e.g. `winget install Microsoft.OpenJDK.21 --architecture arm64`. Confirm `` prints `aarch64`. The launcher's architecture decides which JDK Gradle provisions for the build itself: `gradle/gradle-daemon-jvm.properties` (JetBrains 25) has a Windows ARM64 download, fetched automatically. No local edit of that file is needed any more (verified 2026-10-18; older notes said to delete a `toolchainVendor=AMAZON` line).
 - **Do not** install an x64 JDK (e.g. winget's Corretto): Gradle would accept it and run the whole build emulated, producing x64 output.
 - **LLVM: ARM64 build.** `clang --version` should show `Target: aarch64-pc-windows-msvc`.
 - **Visual Studio Build Tools with the ARM64 build tools** (`Microsoft.VisualStudio.Component.VC.Tools.ARM64`).

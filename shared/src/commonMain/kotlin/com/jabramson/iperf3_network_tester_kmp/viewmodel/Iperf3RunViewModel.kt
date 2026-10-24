@@ -10,7 +10,6 @@ package com.jabramson.iperf3_network_tester_kmp.viewmodel
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.jabramson.iperf3_network_tester_kmp.Notch
 import com.jabramson.iperf3_network_tester_kmp.database.ResultDataEntity
 import com.jabramson.iperf3_network_tester_kmp.database.ResultDataRepository
 import com.jabramson.iperf3_network_tester_kmp.database.getResultDatabase
@@ -19,7 +18,6 @@ import com.jabramson.iperf3_network_tester_kmp.model.Iperf3RunningState
 
 
 import com.jabramson.iperf3_network_tester_kmp.getAppCurrentTimeMillis
-import com.jabramson.iperf3_network_tester_kmp.getNotch
 import com.jabramson.iperf3_network_tester_kmp.utils.getAverage
 import com.jabramson.iperf3_network_tester_kmp.utils.getMaximum
 import com.jabramson.iperf3_network_tester_kmp.utils.getMedian
@@ -198,8 +196,12 @@ class Iperf3RunViewModel() : ViewModel() {
     // instance instead of recreating it. First access happens inside
     // init{}'s Dispatchers.Default launch below (the startup hasHistory
     // check), keeping the (blocking) Room setup off the main thread.
-    private val resultDataRepository: ResultDataRepository by lazy {
-        ResultDataRepository(getResultDatabase().resultDataEntityDao())
+    private val resultDataRepository: ResultDataRepository? by lazy {
+        val resultDatabase = getResultDatabase()
+        if (resultDatabase != null) {
+            ResultDataRepository(resultDatabase.resultDataEntityDao())
+        }
+        return@lazy null
     }
 
     /**
@@ -264,8 +266,14 @@ class Iperf3RunViewModel() : ViewModel() {
      * repeatedly -- e.g. after every save/delete -- since it's just a count().
      */
     private suspend fun refreshHasHistory() {
+        if (resultDataRepository == null) {
+            Log.w("History", "Room Database not supported on Windows on Arm!")
+            return
+        }
         try {
-            _hasHistoryStateFlow.update { resultDataRepository.getCount() > 0 }
+            _hasHistoryStateFlow.update {
+                resultDataRepository!!.getCount() > 0
+            }
         } catch (e: Exception) {
             // Leave hasHistory as-is; nothing sensible to show the user for a
             // background count failure, and saveResult()/showHistory() will
@@ -281,10 +289,11 @@ class Iperf3RunViewModel() : ViewModel() {
      */
     fun showHistory() {
         if (_uiExecutionDataStateFlow.value.isRunning) return
+        if (resultDataRepository == null) return
         _currentScreenStateFlow.update { AppScreen.History }
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                _historyResultsStateFlow.update { resultDataRepository.getAllResults() }
+                _historyResultsStateFlow.update { resultDataRepository!!.getAllResults() }
             } catch (e: Exception) {
                 _uiExecutionDataStateFlow.update {
                     it.copy(errorLines = (it.errorLines + "Failed to load history: ${e.message}").toMutableList())
@@ -305,10 +314,11 @@ class Iperf3RunViewModel() : ViewModel() {
      * History screen's contents, plus the top bar hasHistory flag.
      */
     fun deleteHistoryItem(guid: String) {
+        if (resultDataRepository == null) return
         viewModelScope.launch(Dispatchers.Default) {
             try {
-                resultDataRepository.deleteById(guid)
-                _historyResultsStateFlow.update { resultDataRepository.getAllResults() }
+                resultDataRepository!!.deleteById(guid)
+                _historyResultsStateFlow.update { resultDataRepository!!.getAllResults() }
                 refreshHasHistory()
             } catch (e: Exception) {
                 _uiExecutionDataStateFlow.update {
@@ -326,6 +336,7 @@ class Iperf3RunViewModel() : ViewModel() {
      * share sheet/file dialog must happen on the calling (UI) thread anyway.
      */
     fun exportHistoryCsv() {
+        if (resultDataRepository == null) return
         val results = _historyResultsStateFlow.value
         if (results.isEmpty()) return
         try {
@@ -415,6 +426,7 @@ class Iperf3RunViewModel() : ViewModel() {
      * complex requirements to support roomDB on KMP for all required platforms.
      */
     fun saveResult(time: Double) {
+        if (resultDataRepository == null) return
         if (_uiExecutionDataStateFlow.value.isSaved) return
         viewModelScope.launch(Dispatchers.Default) {
             if (_uiExecutionDataStateFlow.value.iperf3RunningState.totalSamples > 0) {
@@ -425,7 +437,9 @@ class Iperf3RunViewModel() : ViewModel() {
                         it.copy(isSaving = true)
                     }
                     try {
-                        resultDataRepository.insert(current)
+                        if (resultDataRepository != null) {
+                            resultDataRepository!!.insert(current)
+                        }
                         _uiExecutionDataStateFlow.update {
                             it.copy(isSaved = true, isSaving = false, isDatabaseCreated = true)
                         }
