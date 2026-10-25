@@ -58,6 +58,7 @@ Quick-reference guide to all markdown (and a couple of Word) files in this repos
 | [WINDOWS_DECISION_REVERSAL_CASE_STUDY.md](desktop/WINDOWS_DECISION_REVERSAL_CASE_STUDY.md) | How/why the original "not supported" call was reversed, and what it actually cost. |
 | [DESKTOP_SUPPORT_COMPLEXITY_NOTE.md](desktop/DESKTOP_SUPPORT_COMPLEXITY_NOTE.md) | What full desktop support (3 OSes, 2 CPU architectures, distro baselines) actually took. |
 | [WINDOWS_ARM64_IPERF3_PLAN.md](desktop/WINDOWS_ARM64_IPERF3_PLAN.md) | Planning doc for a native (non-Cygwin) `iperf3.exe` on Windows ARM64 — not started; today's Windows ARM64 build runs the x86_64 `iperf3.exe` under Prism emulation. |
+| [WINDOWS_ARM64_PERFORMANCE_TEST.md](desktop/WINDOWS_ARM64_PERFORMANCE_TEST.md) | Test procedure and results table: x64 MSI vs ARM64 MSI vs native WSL2 `iperf3` on Windows on ARM, to decide whether native ARM64 is worth losing Save/History. |
 | [WINDOWS_DESKTOP_APP.md](desktop/WINDOWS_DESKTOP_APP.md) | Historical: the original "not supported" rationale, preserved as-written. |
 
 ---
