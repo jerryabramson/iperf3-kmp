@@ -1,6 +1,11 @@
 # Native iperf3 on Windows ARM64 — Planning Document
 
 **Status:** planning / not started · **Written:** 2026-09-21 · **Branch context:** `windows_msi_bundling`
+
+> **Update 2026-10-25:** Spike C (MSYS2 CLANGARM64) failed. Upstream iperf3 needs a Winsock port
+> under MinGW. Spike D (community MSVC port) succeeded: a native ARM64 iperf3 3.21 exe with only
+> Windows system DLLs. The integration plan is now
+> [WINDOWS_MSVC_IPERF3_PLAN.md](WINDOWS_MSVC_IPERF3_PLAN.md).
 **Audience:** this project's contributors, and anyone else who needs `iperf3.exe` running natively on Windows on Arm. The
 project-specific parts are isolated in §7 so the rest can be read (and reused) on its own.
 
