@@ -18,7 +18,9 @@ import com.jabramson.iperf3_network_tester_kmp.utils.Log
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiInputData
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.DefaultInputData.HOST_NAME
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.sync.Mutex
 import kotlin.coroutines.cancellation.CancellationException
+import kotlin.concurrent.atomics.decrementAndFetch
 import kotlin.concurrent.atomics.incrementAndFetch
 import kotlin.time.Duration.Companion.seconds
 
@@ -60,6 +62,38 @@ class Iperf3Executor(
      */
     @OptIn(ExperimentalAtomicApi::class)
     private val generation = AtomicInt(0)
+
+    /*
+     * One native iperf3 run at a time. Stop cancels the coroutine, but that
+     * can't interrupt the blocking native call: against a host with no
+     * iperf3 server it keeps connecting until --connect-timeout, and the
+     * force stop doesn't cut that short. Run pressed again in that window
+     * used to start a second native run beside the first; the C bridge
+     * keeps one global test, so they freed each other's state (EXC_BAD_ACCESS
+     * in iperf3_bridge_native_iperf3, iOS, 2026-10-26). startTest() now waits
+     * here until the previous native call has really returned.
+     * withContext() only resumes once its block finishes, so the lock is
+     * held for exactly as long as the native call runs, even when the
+     * coroutine is cancelled. Waiting for the lock is cancellable, so a
+     * run stopped while still waiting never starts at all.
+     */
+    private val nativeRunLock = Mutex()
+
+    /* startTest() calls past validation that haven't returned yet: the one
+     * holding nativeRunLock plus any waiting for it. Only used to tell the
+     * user why a new run hasn't started. */
+    @OptIn(ExperimentalAtomicApi::class)
+    private val activeRuns = AtomicInt(0)
+
+    /*
+     * Bumped at the start of every startTest(). Callbacks from a run that a
+     * newer Run has replaced are ignored, so a stopped run that is still
+     * winding down can't write its late output/errors into the new run's
+     * display. A plain Stop doesn't bump it, so that run's own final
+     * messages (e.g. "control socket has closed unexpectedly") still show.
+     */
+    @OptIn(ExperimentalAtomicApi::class)
+    private val runGeneration = AtomicInt(0)
 
     fun setDebug(debug: Boolean) {
         IperfRunner.setDebug(if (debug) 1 else 0)
@@ -136,6 +170,7 @@ class Iperf3Executor(
     @OptIn(ExperimentalAtomicApi::class)
     suspend fun startTest(params: UiInputData): Int {
         Log.d(tag, "iperf3 JNI Bridge Starting")
+        val myRun = runGeneration.incrementAndFetch()
 
         if (params.hostName == HOST_NAME) {
             val myGeneration = generation.incrementAndFetch()
@@ -163,10 +198,7 @@ class Iperf3Executor(
         /*
          * 1. Initialize the iperf3 parameters, do some basic validations
          */
-        val reverse = if (params.isReverse)  "--reverse" else ""
-        val flush = if (params.isForceFlush) "--forceflush" else ""
         val serverPort = params.portNumber
-        val localTimeout = if (params.timeout != 0L) params.timeout else 3000L
         val parallelStreams = params.parallelStreams
         val durationSecs = params.durationSecs
 
@@ -197,6 +229,45 @@ class Iperf3Executor(
             return -1
         }
 
+        // Steps 2-6 set process-wide native state (temp dir, stall timeout)
+        // and reset the shared output monitor, so they run only once the
+        // previous native run has finished -- see nativeRunLock.
+        activeRuns.incrementAndFetch()
+        try {
+            if (!nativeRunLock.tryLock()) {
+                // A previous native run is still finishing (Stop can't cut a
+                // pending connect short). Say so in this run's display while
+                // waiting; that run's own callbacks are already ignored
+                // (runGeneration), so its output can be cleared here.
+                val others = (activeRuns.load() - 1).coerceAtLeast(1)
+                iperf3OutputMonitor.reset(params)
+                iperf3OutputMonitor.processCancelLine("⏳ Waiting to start test, $others already running...")
+                stdout(iperf3OutputMonitor.getCurrentLineResult(), true)
+                nativeRunLock.lock()
+            }
+            try {
+                return runNativeTest(params, myRun)
+            } finally {
+                nativeRunLock.unlock()
+            }
+        } finally {
+            activeRuns.decrementAndFetch()
+        }
+    }
+
+    /**
+     * Steps 2-6 of [startTest]: configure and run the native iperf3 client.
+     * Only called with [nativeRunLock] held. [myRun] is the run's
+     * [runGeneration] value; callbacks from a run a newer one has replaced
+     * are ignored.
+     */
+    @OptIn(ExperimentalAtomicApi::class)
+    private suspend fun runNativeTest(params: UiInputData, myRun: Int): Int {
+        fun isCurrentRun() = runGeneration.load() == myRun
+        val reverse = if (params.isReverse)  "--reverse" else ""
+        val flush = if (params.isForceFlush) "--forceflush" else ""
+        val localTimeout = if (params.timeout != 0L) params.timeout else 3000L
+
         /*
          *  2. Point iperf3 at a real, writable, app-owned temp directory. Real libiperf's
          *     per-stream mkstemp() buffer file needs this — its own built-in fallback
@@ -225,7 +296,7 @@ class Iperf3Executor(
             "--port", params.portNumber.toString(),
             reverse,
             flush,
-            "--parallel", parallelStreams.toString(),
+            "--parallel", params.parallelStreams.toString(),
             "--connect-timeout",
             localTimeout.toString(),
             "--time", params.durationSecs.toString(),
@@ -265,10 +336,11 @@ class Iperf3Executor(
             IperfRunner.executeNativeIperf3Client(
                 currentArgs, params.durationSecs, createIperfCallback(
                     onTime = {
-                        updateElapsedTime(it)
+                        if (isCurrentRun()) updateElapsedTime(it)
                     },
                     onLine =
-                        {
+                        output@{
+                            if (!isCurrentRun()) return@output
                             val line = it.trim().removeSuffix("\n")
                             val newLineResult = iperf3OutputMonitor.processLine(line)
                             microStepVal = (newLineResult.microProgress / microStepMax)
@@ -299,7 +371,8 @@ class Iperf3Executor(
                                 }
                             }
                         }, onError =
-                        {
+                        error@{
+                            if (!isCurrentRun()) return@error
                             /*
                              * Non-fatal warnings can come through here too (see
                              * native/iperf3_jni.c's stderr reader thread) — this
@@ -314,8 +387,10 @@ class Iperf3Executor(
                         },
                     onComplete = {
                         isIperfRunning = false
-                        onTestComplete()
-                        updateProgress(1.0f, 100)
+                        if (isCurrentRun()) {
+                            onTestComplete()
+                            updateProgress(1.0f, 100)
+                        }
                     }
                 )
             )

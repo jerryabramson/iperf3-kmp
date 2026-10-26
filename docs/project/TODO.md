@@ -27,6 +27,15 @@ Planning/tracking doc for open work on `iperf3KMP`. Case-study write-ups live in
 
 - **Save/History doesn't work on Windows ARM64 (accepted gap, documented 2026-10-09; not actionable right now).** Neither `androidx.sqlite:sqlite-bundled` nor `org.xerial:sqlite-jdbc` ships a native SQLite binary for Windows ARM64. Everything else on this target works, including real network tests. Detail and options considered: `platform-builds/windows-arm64.md`. Re-check when either library adds support.
 
+## CLI nice-to-haves (found in 1.0.1 testing, 2026-10-26)
+
+- [ ] **IPv6 addresses overflow the connection line.** `  Local Host/IP: … remote Host/IP: … Remote Port: 5201` is 77 columns with IPv4 addresses on an 80-column terminal; IPv6 addresses (up to 39 characters each) make it wrap. Options: split it over two lines, or shorten/truncate the addresses to fit `terminalWidth`.
+- [ ] **iperf3's own lines print in the wrong place.** `Connecting to host …` (and `Reverse mode, remote host … is sending`) appear after the progress line instead of before it, and iperf3's raw `iperf Done.` line shows. Seen on macOS, Linux (`.rpm`) and Windows. Either print the connect/reverse lines before the progress line or fold them into the header, and filter `iperf Done.`.
+
+## iOS nice-to-haves (found in 1.0.1 testing, 2026-10-26)
+
+- [ ] **History's Export button sits exactly where Run/Stop is on the main screen.** Rapidly tapping Run/Stop and History can land a tap on Export by mistake (iPhone, portrait). Move Export elsewhere in the History top bar, or ignore taps on it for a moment after the screen changes.
+
 ## Release gate: 1.0.0 from `master`
 
 The release criteria live in one place: [`../platform-builds/TEST_MATRIX.md`](../platform-builds/TEST_MATRIX.md), section F. Do not track them here.

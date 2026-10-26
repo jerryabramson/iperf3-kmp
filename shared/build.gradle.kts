@@ -125,7 +125,12 @@ val compileNativeFormatJvm = tasks.register<Exec>("compileNativeFormatJvm") {
                 "this task to previously silently produce no usable output at all."
         )
     }
-    val clangExecutable = if (hostOsName == "windows") windowsClang else "clang"
+    // macOS: /usr/bin/clang explicitly -- see Iperf3Shell.dropXcodeTargetEnv.
+    val clangExecutable = when (hostOsName) {
+        "windows" -> windowsClang
+        "macos" -> "/usr/bin/clang"
+        else -> "clang"
+    }
 
     val clangCommand = listOf(clangExecutable, "-Wall", "-Wextra") +
         (if (hostOsName == "macos") listOf("-dynamiclib") else listOf("-shared")) +
@@ -143,6 +148,7 @@ val compileNativeFormatJvm = tasks.register<Exec>("compileNativeFormatJvm") {
             winConsoleSource.asFile.absolutePath
         )
     commandLine(clangCommand)
+    doFirst { Iperf3Shell.dropXcodeTargetEnv(environment.keys) }
 }
 
 // Desktop JVM build of real libiperf 3.21 (native/iperf3_jni.c + the
@@ -173,6 +179,20 @@ val iperf3SrcDir = rootProject.layout.projectDirectory.dir("third_party/iperf/sr
 // Microsoft/Oracle JDK installers) and gcc then failed with "jni.h: No such
 // file". Backslashes become forward slashes (Cygwin gcc accepts `C:/...`).
 object Iperf3Shell {
+// The Gradle daemon Xcode starts (the iOS app's "embed and sign" build
+// phase) keeps Xcode's build environment, and a later ./gradlew from a
+// terminal reuses that daemon (2026-10-26: desktop compiles then failed with
+// "'string.h' file not found"). Two parts to that:
+//  - Its PATH starts with Xcode's toolchain dir, so a bare `clang` is the raw
+//    compiler, which has no default SDK. /usr/bin/clang is the xcrun shim
+//    that supplies the macOS SDK, so the macOS host compiles call it by
+//    absolute path (and set CC for ./configure).
+//  - IPHONEOS_DEPLOYMENT_TARGET makes clang target iOS instead of macOS, and
+//    SDKROOT makes the shim pick the iPhone SDK. Dropped here for host
+//    compiles; the iOS tasks pass their own -sdk/-mios-*-version-min.
+fun dropXcodeTargetEnv(envKeys: MutableSet<String>) {
+    envKeys.removeAll { it == "SDKROOT" || (it.endsWith("_DEPLOYMENT_TARGET") && it != "MACOSX_DEPLOYMENT_TARGET") }
+}
 fun cygwinShellQuote(arg: String): String =
     "'" + arg.replace('\\', '/').replace("'", "'\\''") + "'"
 fun assertUnixLineEndings(srcDir: File) {
@@ -407,6 +427,10 @@ val compileIperf3Jvm = tasks.register("compileIperf3Jvm") {
                 val pathKey = env.keys.firstOrNull { it.equals("PATH", ignoreCase = true) } ?: "PATH"
                 env[pathKey] = cygwinBin + File.pathSeparator + (env[pathKey] ?: "")
             }
+            if (osName == "macos") {
+                Iperf3Shell.dropXcodeTargetEnv(processBuilder.environment().keys)
+                processBuilder.environment()["CC"] = "/usr/bin/clang" // for ./configure
+            }
             if (osName == "macos" && System.getenv("MACOSX_DEPLOYMENT_TARGET").isNullOrBlank()) {
                 // Same workaround as msTime's Makefile (`export MACOSX_DEPLOYMENT_TARGET ?=
                 // $(sw_vers -productVersion | cut -d. -f1-2)`). On Darwin 27 the MacPorts
@@ -480,7 +504,12 @@ val compileIperf3Jvm = tasks.register("compileIperf3Jvm") {
         // clang for this Windows/Cygwin path specifically (unrelated to
         // compileNativeFormatJvm's native Windows clang, which stays as
         // clang - that library never touches Cygwin at all).
-        val compiler = if (osName == "windows") "gcc" else "clang"
+        // macOS: /usr/bin/clang explicitly -- see Iperf3Shell.dropXcodeTargetEnv.
+        val compiler = when (osName) {
+            "windows" -> "gcc"
+            "macos" -> "/usr/bin/clang"
+            else -> "clang"
+        }
 
         // -fPIC is meaningless for Windows targets (PE/COFF DLLs are always
         // relocatable via base relocation tables, unlike ELF/Mach-O shared
@@ -729,6 +758,7 @@ val compileIperf3IosTasks = iperf3IosSdkByTarget.mapValues { (targetName, sdk) -
         inputs.file(bridgeSource)
         inputs.file(nativeSrcDir.file("iperf3_bridge.h"))
         inputs.file(nativeSrcDir.file("iperf_config_ios.h"))
+        inputs.file(nativeSrcDir.file("native_log.h")) // IPERF_LOG on iOS
         inputs.dir(iperf3SrcDir)
         outputs.file(outFile)
 
@@ -863,6 +893,19 @@ kotlin {
         val capitalizedTarget = iosTarget.name.replaceFirstChar { it.uppercase() }
         tasks.matching { it.name == "cinteropIperf3Bridge$capitalizedTarget" }.configureEach {
             dependsOn(compileIperf3IosTasks.getValue(iosTarget.name))
+            // The .a reaches cinterop only through extraOpts, so Gradle didn't
+            // see it as an input: a rebuilt libiperf3bridge.a (any bridge
+            // change) left cinterop, and so the framework Xcode links, UP-TO-DATE
+            // with the old copy until a clean. Same for the headers below,
+            // found via -I rather than declared in the .def.
+            inputs.file(iperf3IosGeneratedDir.map { it.dir(iosTarget.name).file("libiperf3bridge.a") })
+            inputs.file(rootProject.layout.projectDirectory.file("native/iperf3_bridge.h"))
+        }
+        tasks.matching { it.name == "cinteropNativeLog$capitalizedTarget" }.configureEach {
+            inputs.file(rootProject.layout.projectDirectory.file("native/native_log.h"))
+        }
+        tasks.matching { it.name == "cinteropNativeFormat$capitalizedTarget" }.configureEach {
+            inputs.file(rootProject.layout.projectDirectory.file("native/native_format.h"))
         }
     }
 

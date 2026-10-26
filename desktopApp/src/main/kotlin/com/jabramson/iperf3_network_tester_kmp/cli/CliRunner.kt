@@ -286,7 +286,10 @@ object CliRunner {
             writeLine("${AnsiTerminal.Color.RED.fg()}Terminal is too narrow${AnsiTerminal.reset()} because it was too narrow !!")
             return ResultStatistics(startTimeStamp = startedAt, endTimeStamp = Date(), iperf3ReturnCode = -55)
         }
-        val maxTrackSize = terminalWidth - 65 // based on 80 column width display
+        // Based on an 80-column display. 68, not 65: leaves room for a >= 100 s
+        // elapsed time and a 3-digit rate (each one column wider) without the
+        // progress line wrapping, which breaks its in-place redraw.
+        val maxTrackSize = terminalWidth - 68 // >= 12: narrower than 80 columns is refused earlier
         val maximumProgressBarSize = input.durationSecs.coerceAtMost(maxTrackSize).toLong()
 
         val executor = Iperf3Executor(

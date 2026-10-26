@@ -73,13 +73,13 @@ No lint/typecheck commands are configured. Test sources: `shared/src/{commonTest
 
 - Real iperf3 runs on all three targets; output parsing is text-based, not `--json-stream`.
 - Room persistence, auto-save on run completion, History screen (`view/HistoryScreen.kt`) and CSV export (`utils/CsvExport.kt`) are implemented. `ResultDataMappers.toDomain()` remains an unpopulated stub — history reads `ResultDataEntity` directly.
-- Open work lives in `docs/project/TODO.md`: automated Room round-trip test, native Windows ARM64 `iperf3.exe`, 1.0.0 release gate (Windows x64/ARM64 rebuilds from clean snapshot, Podman `.rpm` container run, install tests on baseline distros).
-- **Known gap: Save/History doesn't work on Windows ARM64** — neither `androidx.sqlite:sqlite-bundled` nor `org.xerial:sqlite-jdbc` ships a native SQLite binary for that target. Everything else works including real network tests. Detail: `docs/platform-builds/windows-arm64.md`.
+- Open work lives in `docs/project/TODO.md`: automated Room round-trip test, native Windows ARM64 `iperf3.exe`, 1.0.1 release round (open cells in `docs/platform-builds/TEST_MATRIX.md` section G).
+- **Known gap: Save/History doesn't work on Windows ARM64** — neither `androidx.sqlite:sqlite-bundled` nor `org.xerial:sqlite-jdbc` ships a native SQLite binary for that target. The app disables it cleanly there (`JVMPlatform.isWindowsOnArm` → `getResultDatabase()` returns `null`; tests run, nothing is saved, no History button). Everything else works including real network tests. Detail: `docs/platform-builds/windows-arm64.md`.
 
 ## Docs map
 
 - `CLAUDE.md` — **single source of truth**: architecture, native bridge design, Room wiring + bug history, packaging, fresh-host setup.
-- `PLATFORM_BUILD_NOTES.md` → `docs/platform-builds/*.md` — per-platform build, signing, and packaging checklists (includes `TEST_MATRIX.md` for the 1.0.0 release gate).
+- `PLATFORM_BUILD_NOTES.md` → `docs/platform-builds/*.md` — per-platform build, signing, and packaging checklists (includes `TEST_MATRIX.md`; section G tracks the 1.0.1 release round).
 - `docs/architecture/IPERF3_NATIVE_INTEGRATION.md` §8–9 — iperf3 JNI/cinterop design rationale.
 - `docs/desktop/` — Windows support history (`WINDOWS_DECISION_REVERSAL_CASE_STUDY.md`) and the ARM64 `iperf3.exe` plan (`WINDOWS_ARM64_IPERF3_PLAN.md`).
 - `docs/README.md` — index of everything under `docs/`. The case studies in `docs/research/` are research artifacts, not build/architecture docs.

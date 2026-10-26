@@ -40,8 +40,36 @@
 
 #include <os/log.h>
 
+/* All of the app's own log lines go under one subsystem, so they can be
+ * picked out of the system's own noise (keyboard, RunningBoard, ...) with a
+ * single Xcode console / Console.app filter:
+ *     subsystem:com.jabramson.iperf3-network-tester-kmp
+ * OS_LOG_DEFAULT has no subsystem, which left text matching as the only
+ * filter, and that missed lines (e.g. stack traces) that don't contain a
+ * recognisable word. Categories: "app" for Kotlin's Log (Log.ios.kt),
+ * "bridge" for iperf3_bridge.c's IPERF_LOG. */
+#define NATIVE_LOG_SUBSYSTEM "com.jabramson.iperf3-network-tester-kmp"
+
+/* Lazily created once per category. Two threads racing the first call can
+ * both call os_log_create(); that's harmless (equivalent handles, one is
+ * simply never released). */
+static inline os_log_t native_log_handle(int bridge) {
+    static os_log_t app_log = NULL;
+    static os_log_t bridge_log = NULL;
+    if (bridge) {
+        if (bridge_log == NULL) bridge_log = os_log_create(NATIVE_LOG_SUBSYSTEM, "bridge");
+        return bridge_log;
+    }
+    if (app_log == NULL) app_log = os_log_create(NATIVE_LOG_SUBSYSTEM, "app");
+    return app_log;
+}
+
 static inline void native_log_write(const char *message) {
-    os_log(OS_LOG_DEFAULT, "%{public}s", message);
+    os_log(native_log_handle(0), "%{public}s", message);
+}
+
+static inline void native_log_write_bridge(const char *message) {
+    os_log(native_log_handle(1), "%{public}s", message);
 }
 
 #endif /* __APPLE__ */

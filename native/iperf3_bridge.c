@@ -39,9 +39,24 @@
 static int g_debug_flag = 0;
 static FILE *g_origStderr = NULL;
 
+#if defined(__APPLE__)
+#include <TargetConditionals.h> /* TARGET_OS_IPHONE, for IPERF_LOG below */
+#endif
+
 #if defined(__ANDROID__)
 #include <android/log.h>
 #define IPERF_LOG(...) if (g_debug_flag != 0) __android_log_print(ANDROID_LOG_INFO, "iperf3_bridge", __VA_ARGS__)
+#elif defined(__APPLE__) && TARGET_OS_IPHONE
+/* iOS: the unified log under the app's subsystem (category "bridge"), the
+ * same place Log.ios.kt writes, so one Xcode console filter shows both --
+ * see native_log.h. stderr lines there carry no subsystem to filter on. */
+#include "native_log.h"
+#define IPERF_LOG(fmt, ...) \
+    if (g_debug_flag != 0) { \
+        char iperf_log_buf_[1024]; \
+        snprintf(iperf_log_buf_, sizeof(iperf_log_buf_), "IPERF_LOG - iperf3_bridge: " fmt __VA_OPT__(,) __VA_ARGS__); \
+        native_log_write_bridge(iperf_log_buf_); \
+    }
 #else
 #define IPERF_LOG(fmt, ...) \
     if (g_debug_flag != 0 && g_origStderr != NULL) fprintf(g_origStderr, "IPERF_LOG - iperf3_bridge: " fmt "\n" __VA_OPT__(,) __VA_ARGS__)
@@ -49,6 +64,25 @@ static FILE *g_origStderr = NULL;
 
 /* Single global test: this app never runs concurrent iperf3 tests. */
 static struct iperf_test *global_test = NULL;
+
+/* g_run_lock: one iperf3_bridge_native_iperf3() at a time. The callers
+ * already serialize runs (Iperf3Executor's nativeRunLock), but everything in
+ * this file is single-test global state, so it guards that itself too: two
+ * overlapping runs freed each other's global_test and joined each other's
+ * threads (EXC_BAD_ACCESS on iOS, 2026-10-26, Run/Stop spammed against a
+ * host with no iperf3 server).
+ * g_test_lock: held while global_test is published or freed, and by
+ * iperf3_bridge_force_stop(), which runs on another thread and could
+ * otherwise use a test that is being freed. */
+static pthread_mutex_t g_run_lock = PTHREAD_MUTEX_INITIALIZER;
+static pthread_mutex_t g_test_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static void free_global_test(void) {
+    pthread_mutex_lock(&g_test_lock);
+    iperf_free_test(global_test);
+    global_test = NULL;
+    pthread_mutex_unlock(&g_test_lock);
+}
 static pthread_t reader_thread;
 static pthread_t stderr_reader_thread;
 static pthread_t monitor_thread;
@@ -69,9 +103,13 @@ struct ThreadArgs {
 
 
 void iperf3_bridge_set_debug(int debug) {
-    IPERF_LOG("iperf3_bridge_set_debug: ENTER");
+    if (g_debug_flag && !debug) {
+        IPERF_LOG("iperf3_bridge_set_debug: Turning Developer logging OFF");
+    }
     g_debug_flag = debug;
-    IPERF_LOG("iperf3_bridge_set_debug: EXIT");
+    if (debug) {
+        IPERF_LOG("iperf3_bridge_set_debug: Turning Developer logging ON");
+    }
 }
 
 void iperf3_bridge_set_temp_dir(const char *temp_dir) {
@@ -129,10 +167,12 @@ void iperf3_bridge_force_stop(const struct IperfCallbacks *callbacks) {
     if (callbacks->on_output) {
         callbacks->on_output(callbacks->ctx, "{iPerf3 Bridge} Requested graceful stop of iPerf3 test.");
     }
+    pthread_mutex_lock(&g_test_lock);
     if (global_test != NULL && !global_test->done) {
         global_test->done = 1;
         iperf_set_send_state(global_test, IPERF_DONE);
     }
+    pthread_mutex_unlock(&g_test_lock);
 }
 
 /* `last_progress` tracks the last time we saw real forward progress, not
@@ -311,8 +351,8 @@ static void *readerThreadFunc(void *args_ptr) {
  * otherwise get misforwarded through on_error and wrongly fail an
  * otherwise-successful test. warning() (iperf_api.c) always writes with a
  * fixed "warning: " prefix, so only lines matching that prefix are treated
- * as real iperf3 warnings; everything else on this pipe is silently
- * dropped. */
+ * as real iperf3 warnings; everything else on this pipe is written back
+ * out to the original stderr (g_origStderr), unchanged. */
 static void *stderrReaderThreadFunc(void *args_ptr) {
     struct ThreadArgs *args = (struct ThreadArgs *) args_ptr;
     const struct IperfCallbacks *cb = args->callbacks;
@@ -323,6 +363,11 @@ static void *stderrReaderThreadFunc(void *args_ptr) {
     FILE *fp = openPipeForReading(args->pipe_fd);
     while (fp != NULL && fgets(buffer, sizeof(buffer), fp)) {
         if (strncmp(buffer, WARNING_PREFIX, sizeof(WARNING_PREFIX) - 1) != 0) {
+            /* Not iperf3's: pass it through to the real stderr rather than
+             * dropping it. Under Xcode, os_log output (the app's own Log
+             * lines and IPERF_LOG, see native_log.h) is mirrored to stderr,
+             * so dropping here silenced all app logging for the whole run. */
+            if (g_origStderr != NULL) fputs(buffer, g_origStderr);
             continue;
         }
         if (cb->on_error) cb->on_error(cb->ctx, buffer);
@@ -336,7 +381,17 @@ static void *stderrReaderThreadFunc(void *args_ptr) {
     return NULL;
 }
 
+static int run_iperf3_locked(char **argv, int argc, const struct IperfCallbacks *callbacks);
+
 int iperf3_bridge_native_iperf3(char **argv, int argc, const struct IperfCallbacks *callbacks) {
+    pthread_mutex_lock(&g_run_lock);
+    int result = run_iperf3_locked(argv, argc, callbacks);
+    pthread_mutex_unlock(&g_run_lock);
+    return result;
+}
+
+/* The whole run; only ever called with g_run_lock held. */
+static int run_iperf3_locked(char **argv, int argc, const struct IperfCallbacks *callbacks) {
     /* iperf3's own CLI ignores SIGPIPE around iperf_run_client() (see
      * third_party/iperf/src/main.c's run()) "to simplify error handling" —
      * a write()/send() on a socket the peer already closed (e.g. the user
@@ -369,7 +424,10 @@ int iperf3_bridge_native_iperf3(char **argv, int argc, const struct IperfCallbac
     if (argc > 64) argc = 64;
 
     /* ----- Create and initialize the iperf test ----- */
-    global_test = iperf_new_test();
+    struct iperf_test *new_test = iperf_new_test();
+    pthread_mutex_lock(&g_test_lock);
+    global_test = new_test;
+    pthread_mutex_unlock(&g_test_lock);
     if (global_test == NULL) {
         if (callbacks->on_error) {
             callbacks->on_error(callbacks->ctx, "{iPerf3 Bridge} ❌ Failed to create iPerf3 test!");
@@ -384,8 +442,7 @@ int iperf3_bridge_native_iperf3(char **argv, int argc, const struct IperfCallbac
         if (callbacks->on_error) {
             callbacks->on_error(callbacks->ctx, "{iPerf3 Bridge} ❌ Failed to create output pipe!");
         }
-        iperf_free_test(global_test);
-        global_test = NULL;
+        free_global_test();
         return -1;
     }
     FILE *outfile = fdopen(pipefd[1], "w");
@@ -478,8 +535,7 @@ int iperf3_bridge_native_iperf3(char **argv, int argc, const struct IperfCallbac
         if (callbacks->on_error) {
             callbacks->on_error(callbacks->ctx, iperf_strerror(i_errno));
         }
-        iperf_free_test(global_test);
-        global_test = NULL;
+        free_global_test();
         return parse_result;
     }
 
@@ -579,8 +635,7 @@ int iperf3_bridge_native_iperf3(char **argv, int argc, const struct IperfCallbac
     int monitor_join_rc = pthread_join(monitor_thread, NULL);
     IPERF_LOG("iperf3_bridge_native_iperf3: pthread_join(monitor) rc=%d", monitor_join_rc);
 
-    iperf_free_test(global_test);
-    global_test = NULL;
+    free_global_test();
     fclose(outfile); /* unblocks the reader thread's fgets() with EOF */
 
     /* Restore the process's real stderr before joining the stderr reader
