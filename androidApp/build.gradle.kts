@@ -33,6 +33,19 @@ dependencies {
     ksp(libs.androidx.room.compiler)
 }
 
+// Release (Play upload) signing, opt-in and per developer: set these in your
+// own ~/.gradle/gradle.properties, never in the repo's gradle.properties.
+//   androidApp.releaseStoreFile=/absolute/path/to/upload-keystore.jks
+//   androidApp.releaseKeyAlias=upload
+//   androidApp.releaseStorePassword=...   (or env ANDROID_RELEASE_STORE_PASSWORD)
+//   androidApp.releaseKeyPassword=...     (or env ANDROID_RELEASE_KEY_PASSWORD)
+// Without androidApp.releaseStoreFile, release builds are unsigned (Play
+// rejects those). Setup: docs/platform-builds/android.md.
+fun releaseSigningValue(property: String, env: String? = null): String? =
+    providers.gradleProperty(property).orNull
+        ?: env?.let { providers.environmentVariable(it).orNull }
+val releaseStoreFile = releaseSigningValue("androidApp.releaseStoreFile")
+
 android {
     namespace = "com.jabramson.iperf3_network_tester_kmp"
     compileSdk = libs.versions.android.compileSdk.get().toInt()
@@ -51,9 +64,25 @@ android {
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }
+    signingConfigs {
+        if (releaseStoreFile != null) {
+            create("release") {
+                fun required(property: String, env: String? = null) =
+                    releaseSigningValue(property, env) ?: throw GradleException(
+                        "androidApp.releaseStoreFile is set but $property is missing " +
+                            "(set it in ~/.gradle/gradle.properties${env?.let { " or env $it" } ?: ""})."
+                    )
+                storeFile = file(releaseStoreFile)
+                keyAlias = required("androidApp.releaseKeyAlias")
+                storePassword = required("androidApp.releaseStorePassword", "ANDROID_RELEASE_STORE_PASSWORD")
+                keyPassword = required("androidApp.releaseKeyPassword", "ANDROID_RELEASE_KEY_PASSWORD")
+            }
+        }
+    }
     buildTypes {
         getByName("release") {
             isMinifyEnabled = false
+            signingConfigs.findByName("release")?.let { signingConfig = it }
         }
     }
     compileOptions {

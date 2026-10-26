@@ -132,6 +132,8 @@ Build-and-install from this checkout: `scripts/installMacFromPackage.sh` (a wrap
 
 macOS signing/notarization is opt-in via properties in the developer's own `~/.gradle/gradle.properties` (`desktopApp.macSigningIdentity`, `desktopApp.macNotarizationProfile` — a `notarytool store-credentials` keychain profile name — and optional `desktopApp.macBundleId`, default `com.jabramson.iperf3-network-tester-kmp`). Never put these in the repo's committed `gradle.properties`. Without them, `packageDmg` builds unsigned. Setup steps: `docs/platform-builds/macos-arm64.md`.
 
+Android release (Play upload) signing works the same way: `androidApp.releaseStoreFile`, `androidApp.releaseKeyAlias`, `androidApp.releaseStorePassword`, `androidApp.releaseKeyPassword` in `~/.gradle/gradle.properties` (passwords may come from `ANDROID_RELEASE_STORE_PASSWORD`/`ANDROID_RELEASE_KEY_PASSWORD`). Without them `bundleRelease` is unsigned. The key is the Play **upload** key; keystores are gitignored. Setup: `docs/platform-builds/android.md`.
+
 `packageName` (`desktopApp/build.gradle.kts`) is `"iperf3KMP"`. Output lands under `desktopApp/build/compose/binaries/main/<format>/`, one subdirectory per format actually built:
 - `dmg/iperf3KMP-1.0.0.dmg`
 - `msi/iperf3KMP-1.0.0.msi` — confirmed by real builds on Windows x86_64 and Windows ARM64

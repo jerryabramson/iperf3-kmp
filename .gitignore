@@ -22,3 +22,7 @@ node_modules/
 
 # Per-developer iOS signing (Apple team ID, bundle-ID prefix) -- see docs/platform-builds/ios.md
 iosApp/Configuration/LocalSigning.xcconfig
+
+# Android upload keystores (release signing is per developer: docs/platform-builds/android.md)
+*.jks
+*.keystore
