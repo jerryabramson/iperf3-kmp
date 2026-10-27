@@ -229,6 +229,7 @@ val patchDebDesktopMenuScripts = tasks.register("patchDebDesktopMenuScripts") {
     // like this serializes fine.
     val debDirProvider = layout.buildDirectory.dir("compose/binaries/main/deb")
     val extractDirProvider = layout.buildDirectory.dir("compose/tmp/debPatch")
+    val debVersion = rootProject.extra["appVersion"] as String
 
     doLast {
         fun run(vararg cmd: String) {
@@ -238,31 +239,39 @@ val patchDebDesktopMenuScripts = tasks.register("patchDebDesktopMenuScripts") {
             check(exitCode == 0) { "Command failed (${cmd.joinToString(" ")}):\n$output" }
         }
 
+        // The deb folder keeps .debs from earlier builds (e.g. 1.0.0 next to 1.0.1
+        // after a VERSION bump), so pick the one packageDeb just built for this
+        // version, not just the first .deb found.
         val debDir = debDirProvider.get().asFile
-        val debFile = debDir.listFiles { f -> f.extension == "deb" }?.firstOrNull()
-            ?: error("No .deb found in $debDir to patch")
+        val debFile = debDir.listFiles { f -> f.extension == "deb" && f.name.contains("_${debVersion}_") }
+            ?.maxByOrNull { it.lastModified() }
+            ?: error("No .deb for version $debVersion found in $debDir to patch")
         val extractDir = extractDirProvider.get().asFile
         extractDir.deleteRecursively()
 
         run("dpkg-deb", "-R", debFile.absolutePath, extractDir.absolutePath)
 
-        var patchedAny = false
         for (scriptName in listOf("postinst", "prerm")) {
             val script = extractDir.resolve("DEBIAN/$scriptName")
-            if (!script.exists()) continue
-            val original = script.readText()
+            val original = script.takeIf { it.exists() }?.readText() ?: ""
+            // The command isn't always at the start of the line: newer jpackage
+            // wraps prerm's in `do_if_file_belongs_to_single_package <file>
+            // xdg-desktop-menu uninstall ...`. That helper runs "$@" as its last
+            // command, so `|| true` after it still guards the failure (set -e is
+            // suspended inside an `||` list).
             val patched = original.replace(
-                Regex("""^(xdg-desktop-menu (?:install|uninstall) .*?)(?: \|\| true)?$""", RegexOption.MULTILINE)
+                Regex("""^(.*\bxdg-desktop-menu (?:install|uninstall) .*?)(?: \|\| true)?$""", RegexOption.MULTILINE)
             ) { "${it.groupValues[1]} || true" }
-            if (patched != original) {
-                script.writeText(patched)
-                patchedAny = true
+            // Both scripts must end up with the guard: postinst for install, prerm
+            // for `apt remove`. Checking only "patched something" let a .deb ship
+            // with an unguarded prerm.
+            val menuLines = patched.lines().filter { "xdg-desktop-menu " in it }
+            check(menuLines.isNotEmpty() && menuLines.all { it.trimEnd().endsWith("|| true") }) {
+                "Expected guarded `xdg-desktop-menu install/uninstall` lines in " +
+                    "$extractDir/DEBIAN/$scriptName - jpackage's template may have " +
+                    "changed, review this task."
             }
-        }
-        check(patchedAny) {
-            "Expected to find an `xdg-desktop-menu install/uninstall` line in " +
-                "$extractDir/DEBIAN/{postinst,prerm} - jpackage's template may have " +
-                "changed, review this task."
+            if (patched != original) script.writeText(patched)
         }
 
         // Package metadata Compose/jpackage can't set: a Homepage field and a
