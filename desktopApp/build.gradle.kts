@@ -34,6 +34,10 @@ val generateVersionKt = tasks.register("generateVersionKt") {
     description = "Generates cli/AppVersion.kt from the repo-root VERSION file."
     val version = rootProject.extra["appVersion"] as String
     val outputDirProvider = generatedVersionDir
+    // Without this input Gradle treats the task as up to date after a VERSION
+    // bump (its output dir already exists), and the CLI keeps printing the old
+    // version: a 1.0.2 .deb reported `iperf3KMP 1.0.1`.
+    inputs.property("version", version)
     outputs.dir(outputDirProvider)
     doLast {
         val pkgDir = outputDirProvider.get().asFile
