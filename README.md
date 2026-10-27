@@ -74,7 +74,6 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 
 | Installer                                                                                                                        | Operating System       | architecture |
 |----------------------------------------------------------------------------------------------------------------------------------|------------------------|--------------|
-| [Apple Test Flight](https://testflight.apple.com/join/dd3vdepe) (1.0.1)                         | iOS Test Flight      | `aarch64`    |
 | [iperf3KMP-1.0.0.dmg](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP-1.0.0.dmg)                     | macOS                  | `aarch64`    |
 | [iperf3kmp_1.0.0_arm64.deb](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp_1.0.0_arm64.deb)         | Debian/Ubuntu          | `arm64`      |
 | [iperf3kmp-1.0.0-1.aarch64.rpm](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp-1.0.0-1.aarch64.rpm) | Fedora/RHEL            | `aarch64`    |
