@@ -5,6 +5,12 @@ real network tests. `:desktopApp:run` also verified on real hardware (NVIDIA RTX
 laptop, 2026-10-24), from both the terminal and IntelliJ (see "IntelliJ IDEA" below).
 Save/History (Room/SQLite) is disabled on this target — see the known limitation below.
 
+**Released builds (from 1.0.2):** no ARM64 `.msi` is published. Windows on Arm users install the
+x86_64 `.msi` from GitHub releases (see [windows-x86_64.md](windows-x86_64.md) and README.md),
+which runs under Prism and keeps Save/History. Building the ARM64 `.msi` below is for development.
+In-process JNI on both architectures, without Cygwin, is planned for desktop 1.0.3
+(`WINDOWS_MSVC_IPERF3_PLAN.md` §8a, branch `testing_native_windows_builds`).
+
 The result is a **mixed-architecture** package: the JVM and `nativeformat.dll` are native ARM64, but the bundled `iperf3.exe` and `cygwin1.dll` are x86_64 (Cygwin has no ARM64 port) and run under Prism emulation. Whether emulation affects measured throughput is untested. Native `iperf3.exe` plan: [WINDOWS_ARM64_IPERF3_PLAN.md](../desktop/WINDOWS_ARM64_IPERF3_PLAN.md).
 
 ## Prerequisites

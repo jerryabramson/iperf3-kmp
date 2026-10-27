@@ -51,9 +51,10 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 >> ```powershell
 >> irm https://raw.githubusercontent.com/jerryabramson/iperf3-kmp/master/install.ps1 | iex
 >> ```
->> Windows isn't distributed as a GitHub release asset — the script above just
->> points you at the Microsoft Store listing (pending certification) or the
->> platform build guide below.
+>> Downloads the newest `.msi` from the GitHub releases and installs it for the current user
+>> (no administrator rights needed). One `.msi`, `x86_64`, covers Windows on Arm too (it runs
+>> under Windows' x64 emulation). To download the `.msi` in a browser instead, see
+>> [Installing the Windows `.msi`](#installing-the-windows-msi) below.
 >> 
 
 ---
@@ -77,14 +78,33 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 | [iperf3KMP-1.0.0.dmg](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP-1.0.0.dmg)                     | macOS                  | `aarch64`    |
 | [iperf3kmp_1.0.0_arm64.deb](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp_1.0.0_arm64.deb)         | Debian/Ubuntu          | `arm64`      |
 | [iperf3kmp-1.0.0-1.aarch64.rpm](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp-1.0.0-1.aarch64.rpm) | Fedora/RHEL            | `aarch64`    |
-| _[Windows ARM64 build guide](docs/platform-builds/windows-arm64.md)_ — Store listing pending certification                     | Windows on ARM         | `arm64`      |
+| `iperf3KMP-<version>.msi` (from 1.0.2) on [Releases](https://github.com/jerryabramson/iperf3-kmp/releases) — the `x86_64` `.msi`, run under emulation | Windows on ARM         | `arm64`      |
 
 
 | Installer                                                                                                                      | Operating System | architecture |
 |--------------------------------------------------------------------------------------------------------------------------------|------------------|--------------|
-| _[Windows x86_64 build guide](docs/platform-builds/windows-x86_64.md)_ — Store listing pending certification                  | Windows          | `x86_64`     |
+| `iperf3KMP-<version>.msi` (from 1.0.2) on [Releases](https://github.com/jerryabramson/iperf3-kmp/releases)                     | Windows          | `x86_64`     |
 | [iperf3kmp_1.0.0_amd64.deb](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp_1.0.0_amd64.deb)       | Debian/Ubuntu    | `x86_64`     |
 | [iperf3kmp-1.0.0-1.x86_64.rpm](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp-1.0.0-1.x86_64.rpm) | Fedora/RHEL      | `x86_64`     |
+
+### Installing the Windows `.msi`
+
+The `.msi` isn't code-signed, so Windows warns about it when it was downloaded with a browser.
+It installs for the **current user only** (into `%LOCALAPPDATA%\iperf3KMP`, Start menu →
+**Network Tools** → **iperf3KMP**) and never asks for administrator rights.
+
+* **Easiest:** the PowerShell one-liner above. A file PowerShell downloads isn't marked as coming
+  from the internet, so these warnings normally don't appear.
+* **Browser download:** either
+  * unblock the file first: right-click it → **Properties** → tick **Unblock** → **OK**, or in
+    PowerShell `Unblock-File .\iperf3KMP-<version>.msi`, then double-click it; or
+  * double-click it, and if Microsoft Defender SmartScreen shows "Windows protected your PC",
+    click **More info** → **Run anyway**. The browser may also ask you to **Keep** the download
+    first (Edge: **…** → **Keep** → **Show more** → **Keep anyway**).
+* **Windows on Arm:** use the same `x86_64` `.msi`. It runs under Windows' x64 emulation, and
+  Save/History works there.
+* **Upgrading from 1.0.0:** 1.0.0 installed for all users into Program Files; uninstall it first
+  (Settings → Apps) so you don't end up with two copies.
 
 
 

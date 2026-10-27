@@ -4,6 +4,11 @@
 
 Windows does not use the in-process JNI iperf3 path. The app spawns a bundled `iperf3.exe` (built from `third_party/iperf` with Cygwin) as a subprocess. Background: [WINDOWS_DECISION_REVERSAL_CASE_STUDY.md](../desktop/WINDOWS_DECISION_REVERSAL_CASE_STUDY.md).
 
+**Released builds (from 1.0.2):** this `.msi` is published on GitHub releases, unsigned, and is the
+only Windows package (Windows on Arm uses it too). It installs per user, with no UAC prompt.
+`install.ps1` downloads and installs the newest one. README.md's "Installing the Windows `.msi`" has
+the SmartScreen / "Unblock" steps for browser downloads.
+
 ## Prerequisites
 - Common setup: [PLATFORM_BUILD_NOTES.md](../../PLATFORM_BUILD_NOTES.md).
 - **Cygwin (x86_64)** at exactly `C:\cygwin64`, with `gcc-core` and `make`. Builds `iperf3.exe`. The build stops with a clear error if `C:\cygwin64\bin\bash.exe` is missing. It never falls back to `bash` on PATH, which may be WSL's.
