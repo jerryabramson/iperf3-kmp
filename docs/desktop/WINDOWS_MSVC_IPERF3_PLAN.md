@@ -1,6 +1,7 @@
 # Native Windows iperf3 (MSVC) — integration plan
 
-**Status:** plan, written 2026-10-25. Nothing implemented yet.
+**Status:** plan, written 2026-10-25. Nothing implemented yet. **Updated 2026-10-27:** target is
+now in-process JNI on both Windows architectures in desktop **1.0.3**; see §8a.
 **Supersedes:** the option analysis in [WINDOWS_ARM64_IPERF3_PLAN.md](WINDOWS_ARM64_IPERF3_PLAN.md).
 Its Spike C (MinGW) failed and Spike D (community MSVC port) succeeded; see §2.
 
@@ -186,6 +187,46 @@ both Windows architectures. So Windows could use the same `native/iperf3_bridge.
 2. Build tool: MSBuild (recommended to start) or clang + VS.
 3. After Phase 1 on ARM64: also replace Cygwin on **x64**?
 4. Whether and when to do Phase 2 (JNI).
+
+Decisions 3 and 4 were answered on 2026-10-27; see §8a.
+
+## 8a. Direction for desktop 1.0.3 (decided 2026-10-27)
+
+**Goal:** in desktop **1.0.3**, both Windows ARM64 and Windows x64 run iperf3 in-process through
+JNI, like macOS and Linux. `ProcessBuilder`, `WindowsIperf3ProcessRunner`, the bundled
+`iperf3.exe` and `cygwin1.dll` all go away, and so does Cygwin as a Windows build prerequisite.
+
+- **"No DLL" means no *Cygwin* DLL.** JNI on Windows still loads a library, `iperf3native.dll`,
+  just as macOS/Linux load a `.dylib`/`.so` and Windows already loads `nativeformat.dll`. Built
+  with MSVC and a statically linked C runtime, it should depend only on system DLLs (the Spike D
+  exe needed only `WS2_32`, `bcrypt`, `ADVAPI32`, `KERNEL32`). Verify that with
+  `dumpbin /dependents` on the DLL.
+- **Releases:**
+  - **Desktop 1.0.2** (branch `desktop-1.0.2`, from `master` at `7eb979a`): the packages that
+    already work, rebuilt as 1.0.2. They are a notarized macOS `.dmg` (aarch64), `.deb` and `.rpm`
+    for Linux aarch64 and x86_64, and **one Windows `.msi`, x86_64 only**. Windows keeps the
+    Cygwin `iperf3.exe` + `ProcessBuilder` path. No separate ARM64 `.msi`: on Windows on Arm the
+    x64 `.msi` runs entirely under Prism, and with an x64 JVM, Save/History works there (the
+    sqlite native exists for x64), unlike the ARM64 `.msi`. Check that on yoga1 before release
+    (`TEST_MATRIX.md`, "`.msi` x64 on ARM64" row).
+  - **Desktop 1.0.3:** this plan's Phase 2 on both architectures.
+- **Order of work for 1.0.3:**
+  1. **Spike only, not shipped:** Phase 1's native `iperf3.exe` (§5 steps 1–3, 5). It's the
+     cheap way to vet the port and to check that its `iperf_api.c` changes still produce output
+     `Iperf3OutputMonitor` parses, before debugging the same thing inside the JVM.
+  2. **JNI on ARM64** (§6), on the Windows on Arm laptop (yoga1).
+  3. **JNI on x64**, on `proart1`. Same sources, different MSBuild `Platform`.
+  4. **Remove the Windows process path:** route Windows to `NativeIperfBridge` in `IperfRunner`,
+     delete `WindowsIperf3ProcessRunner`, `compileIperf3ExeWindows` and `stageWindowsIperf3`,
+     and drop Cygwin from `windows-x86_64.md`/`windows-arm64.md`/CLAUDE.md.
+  5. **Clean-machine verification** of both `.msi`s per `TEST_MATRIX.md`: real tests (`-R`,
+     `-P 4`), Run/Stop spam, bad host / refused port, many runs in one session.
+- **Accepted trade-off:** no crash isolation. iperf3's `exit()` on fatal errors closes the app,
+  the same exposure macOS, Linux and Android already have. Repeated runs in one process
+  (getopt reset, Winsock startup, per-stream threads) are the main thing to test.
+- **Gains:** one desktop code path, roughly 250 lines of Windows-only Kotlin removed (a higher
+  code-sharing figure for the research write-up), a graceful stop instead of
+  `Process.destroy()`, and a fully native ARM64 build.
 
 ## 9. References
 
