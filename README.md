@@ -70,7 +70,7 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 > | iOS / iPadOS | 1.0.1 | Open the [Apple TestFlight link](https://testflight.apple.com/join/dd3vdepe) on the device (installs the TestFlight app first if needed). |
 > | Android | 1.0.1 | 1. Join the [iperf3kmp-testers Google Group](https://groups.google.com/g/iperf3kmp-testers) with the Google account your phone uses.<br>2. Open the [Google Play test opt-in link](https://play.google.com/apps/internaltest/4701134935371941254) on the phone, signed in with that account, accept, and install from Play. It can take a few minutes after joining before the link works ("item not found" until then). |
 
-# Release 1.0.0 Installers
+# Release 0.1 Installers
 
 | Installer                                                                                                                        | Operating System       | architecture |
 |----------------------------------------------------------------------------------------------------------------------------------|------------------------|--------------|
