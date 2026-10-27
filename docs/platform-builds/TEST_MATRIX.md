@@ -144,6 +144,10 @@ per-user install, console CLI and UTF-8 output, Start-menu entry, vendor/package
 `IPERF3KMP_NERD_FONT`, container-script version fix, jvmTest fixes). Re-confirm builds on the final commit once those are
 committed; the release itself is tagged and built from that commit.
 
+Store builds of 1.0.1 (10001): **iOS TestFlight build from `37e14cf`; Android Play build from `ba7c7f3`.** The app code
+is the same in both. `ba7c7f3` only adds Android release signing (and docs/store images), which produced a new Android
+artifact, a signed release build, so the Play build was smoke-tested separately (results log, 2026-10-26).
+
 Legend as above. "Auto" = verified by command/SSH; "manual" = needs a person at the machine.
 
 | Cell | Machine | Build | Auto checks | Manual checks | Status |
@@ -157,7 +161,7 @@ Legend as above. "Auto" = verified by command/SSH; "manual" = needs a person at 
 | `.deb`/`.rpm` x86_64 | Fedora / Debian x86_64 hosts | ⬜ | ⬜ | ⬜ | ⬜ |
 | `.dmg` | Mac | ✅ `installDmg` (2026-10-26, `90a35ec` + uncommitted) | ✅ 39 jvmTest; desktop compiles | ✅ GUI ("looks good" per owner); ⬜ GUI Run/Stop spam vs `1.1.1.1` not reported; ✅ CLI: real test vs `jabramson.com`, connect timeout vs `1.1.1.1` (rc 103), Ctrl-C mid-connect and mid-test exits cleanly; ✅ `env -u COLUMNS` (width from `stty`, rules full width). ⬜ BandWidthTester comparison (optional) | ✅ |
 | iOS | Mac + Xcode | ✅ device (Debug) 1.0.1 (10001), 2026-10-26; ✅ TestFlight 1.0.1 (10001) from `37e14cf`, smoke-tested; ⬜ simulator | ✅ `iosSimulatorArm64Test` 38/0 | ✅ real tests, Run/Stop spam vs `1.1.1.1` and a real server, developer-logging toggle; ✅ `project.pbxproj`/`.xcscheme` unchanged. ✅ Local Network prompt (fresh install, shows our `NSLocalNetworkUsageDescription` text), ✅ Save → History (incl. Run/Stop + History spam) | ✅ |
-| Android | Mac | ✅ debug build on a real device, 2026-10-26 | ✅ `testAndroidHostTest` 2/0 | ✅ real device: Wi-Fi and cellular tests, Run/Stop spam vs `1.1.1.1` (both networks), Save → History incl. delete + force stop, developer-logging toggle. ⬜ signed `.aab` for Play internal testing (release signing not set up yet) | ⏳ |
+| Android | Mac | ✅ debug build on a real device, 2026-10-26; ✅ signed `.aab` 1.0.1 (10001) from `ba7c7f3`, on Play internal testing, smoke-tested | ✅ `testAndroidHostTest` 2/0 | ✅ real device: Wi-Fi and cellular tests, Run/Stop spam vs `1.1.1.1` (both networks), Save → History incl. delete + force stop, developer-logging toggle. ✅ same smoke test on the Play-installed build (Play App Signing + automatic protection on) | ✅ |
 
 Open follow-ups found this round: raw `iperf Done.` line shows in the CLI on Windows and also on Linux (Fedora `.rpm`), so it's not
 Windows-only; in the same run `Connecting to host ...` printed after the progress line, and the last rule is shorter (82 columns) than the others;
@@ -229,3 +233,5 @@ Add one line per run: date · cell · commit · machine/OS build · pass/fail ·
 | 2026-10-26 | Automated: `testAndroidHostTest`, `iosSimulatorArm64Test` | `90a35ec` + uncommitted | Mac | pass | Android host 2/0, iOS simulator 38/0 (jvmTest 39/0 earlier today) |
 | 2026-10-26 | iOS 1.0.1 (10001) archived and uploaded to TestFlight; available on the public link | `37e14cf` | Mac, Xcode; App Store Connect | uploaded | Install from TestFlight and smoke-test next |
 | 2026-10-26 | iOS 1.0.1 (10001) installed from TestFlight: smoke test | `37e14cf` | iPhone (owner) | pass | The build testers get; smoke test passed per owner |
+| 2026-10-26 | Android 1.0.1 (10001) signed `.aab` uploaded to Play internal testing and published | `ba7c7f3` | Mac (build); Play Console | uploaded | New app record `com.jabramson.iperf3_network_tester_kmp`; upload key SHA-256 matches `47:1B:8B:63:…:6E:3E:2A`; Play App Signing and automatic protection on; 16 KB page size supported; expected no-deobfuscation-file warning (R8 off) |
+| 2026-10-26 | Android 1.0.1 (10001) installed from Play internal testing: smoke test | `ba7c7f3` | Android phone (owner) | pass | Debug build uninstalled first. Real tests on Wi-Fi and cellular, Run/Stop spam vs `1.1.1.1` ("⏳ Waiting to start test…" shown, no crash), Save → History incl. delete + force stop and reopen, per owner |

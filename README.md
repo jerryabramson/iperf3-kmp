@@ -59,12 +59,23 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 ---
 
 ### `Platform Installers`
+
+> [!IMPORTANT]
+> ### Release 1.0.1: iOS and Android only
+> 1.0.1 is out for **iOS** (TestFlight public beta) and **Android** (Google Play testing).
+> The desktop installers further down are still **1.0.0**; desktop 1.0.1 hasn't been released yet.
+>
+> | Platform | Version | How to install |
+> |----------|---------|----------------|
+> | iOS / iPadOS | 1.0.1 | Open the [Apple TestFlight link](https://testflight.apple.com/join/dd3vdepe) on the device (installs the TestFlight app first if needed). |
+> | Android | 1.0.1 | 1. Join the [iperf3kmp-testers Google Group](https://groups.google.com/g/iperf3kmp-testers) with the Google account your phone uses.<br>2. Open the [Google Play test opt-in link](https://play.google.com/apps/internaltest/4701134935371941254) on the phone, signed in with that account, accept, and install from Play. It can take a few minutes after joining before the link works ("item not found" until then). |
+
 # Initial Installers
 
 | Installer                                                                                                                        | Operating System       | architecture |
 |----------------------------------------------------------------------------------------------------------------------------------|------------------------|--------------|
-| [androidApp-debug.apk](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/androidApp-debug.apk)                   | Android                | `arm`        |
-| [Apple Test Flight](https://testflight.apple.com/join/dd3vdepe)                                 | iOS Test Flight      | `aarch64`    |
+| [androidApp-debug.apk](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/androidApp-debug.apk) (older debug build; use Google Play for 1.0.1) | Android                | `arm`        |
+| [Apple Test Flight](https://testflight.apple.com/join/dd3vdepe) (1.0.1)                         | iOS Test Flight      | `aarch64`    |
 | [iperf3KMP-1.0.0.dmg](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3KMP-1.0.0.dmg)                     | macOS                  | `aarch64`    |
 | [iperf3kmp_1.0.0_arm64.deb](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp_1.0.0_arm64.deb)         | Debian/Ubuntu          | `arm64`      |
 | [iperf3kmp-1.0.0-1.aarch64.rpm](https://github.com/jerryabramson/iperf3-kmp/releases/download/0.1/iperf3kmp-1.0.0-1.aarch64.rpm) | Fedora/RHEL            | `aarch64`    |
