@@ -60,4 +60,4 @@ If the app's data handling ever changes, this file will be updated and the
 
 ## Contact
 
-Jerold Abramson — jthea@bu.edu
+Jerold Abramson — jerry@jabramson.com
