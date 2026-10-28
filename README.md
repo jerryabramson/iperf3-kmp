@@ -120,7 +120,7 @@ iperf3KMP is a cross-platform network performance testing app for Android, iOS, 
 >>```shell
 >>cd third_party
 >>rmdir iperf
->>git clone https://github.com/esnet/iperf.git
+>>git clone --branch 3.21 --depth 1 https://github.com/esnet/iperf.git iperf
 >>```
 > * **Run desktop app (Linux, macOS, or Windows — on Windows use `gradlew.bat`, see the Windows section below)**
 >> ```shell
