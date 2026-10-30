@@ -50,9 +50,9 @@ fun DebugOutputSection(
     isTiny: Boolean = false
 ) {
     if (!isDebugging) return
-    val fontSize = if (isTiny) 11.sp
-    else if (isTall || isWide) 14.sp
-    else 12.sp
+    val fontSize = if (isTiny) 10.sp
+    else if (isTall || isWide) 11.sp
+    else 10.sp
 
 
     val style = monoStyle.copy(fontSize = fontSize)
@@ -63,7 +63,7 @@ fun DebugOutputSection(
         Column(modifier = Modifier.fillMaxWidth().padding(start = 10.dp, top = 4.dp), horizontalAlignment = Alignment.CenterHorizontally) {
             Text(
                 "iPerf3 Output",
-                style = MaterialTheme.typography.titleSmall,
+                style = if (!isWide) MaterialTheme.typography.titleSmall else MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.padding(start = 4.dp)
             )
         }
@@ -165,7 +165,7 @@ fun OutputBox(modifier: Modifier = Modifier,
                     DebugOutputItem(
                         outputLines[reverseIndex],
                         style = style,
-                        color = MaterialTheme.colorScheme.primary,
+                        color = MaterialTheme.colorScheme.onSurface,
                         stalled = str.lowercase().contains("stalled"),
                         skipped = str.lowercase().contains("omitted")
                     )

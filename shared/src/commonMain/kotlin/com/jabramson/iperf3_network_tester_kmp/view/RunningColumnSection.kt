@@ -147,15 +147,21 @@ fun ProgressPercent(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(text = "${percentageComplete}% complete  ", modifier = Modifier.padding(end = 2.dp))
+                Text(
+                    text = "${percentageComplete}% complete  ",
+                    modifier = Modifier.padding(end = 2.dp),
+                    style = MaterialTheme.typography.bodyMedium
+                )
                 Text(
                     text = iter,
-                    modifier = Modifier.padding(end = 3.dp)
+                    modifier = Modifier.padding(end = 3.dp),
+                    style = MaterialTheme.typography.bodyMedium
                 )
                 Text(
                     text = " $parallelStreams streams",
                     color = MaterialTheme.colorScheme.secondary,
-                    modifier = Modifier.padding(end = 3.dp)
+                    modifier = Modifier.padding(end = 3.dp),
+                    style = MaterialTheme.typography.bodyMedium
                 )
             }
         }
@@ -201,7 +207,7 @@ fun BandwidthDisplay(omittedResult: Boolean = false,
             color = color,
             textAlign = TextAlign.Center,
             modifier = Modifier.fillMaxWidth(),
-            style = MaterialTheme.typography.titleLargeEmphasized
+            style = MaterialTheme.typography.titleMediumEmphasized
         )
 
         HorizontalDivider(
@@ -245,18 +251,18 @@ fun BandwidthDisplay(omittedResult: Boolean = false,
         ) {
             Text(
                 text = toWholeNumber(min, preview).trim(),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.bodyLarge
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyMedium
             )
             Text(
                 text = toWholeNumber(avg, preview),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.bodyLarge
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyMedium
             )
             Text(
                 text = toWholeNumber(max, preview),
-                color = MaterialTheme.colorScheme.primary,
-                style = MaterialTheme.typography.bodyLarge
+                color = MaterialTheme.colorScheme.onSurface,
+                style = MaterialTheme.typography.bodyMedium
             )
         }
         Spacer(modifier = Modifier.height(2.dp))

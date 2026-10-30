@@ -54,8 +54,12 @@ fun ResultsRow(
     if (isRunning || !isFinished) return
     if (results.isEmpty()) return
     val thick = if (returnCode != 0) 3.dp else 2.dp
+        // Divider/accent color (purple, or red on failure)
     val resultColor =
         if (returnCode != 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary
+    // Readable data text: near-black in light, near-white in dark (red on failure)
+    val textColor =
+        if (returnCode != 0) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
 
     if (results.isNotEmpty()) {
         if ((!isWide && isTall) || isTiny) {
@@ -64,7 +68,7 @@ fun ResultsRow(
             HorizontalDivider(
                 modifier = Modifier.fillMaxWidth(),
                 thickness = thick,
-                color = MaterialTheme.colorScheme.tertiary
+                color = MaterialTheme.colorScheme.outlineVariant
             )
             Column(
                 horizontalAlignment = Alignment.Start,
@@ -75,14 +79,15 @@ fun ResultsRow(
                     style = style,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Left,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onSurface
+
                 )
                 Text(
                     text = dest,
                     style = style,
                     modifier = Modifier.fillMaxWidth(),
                     textAlign = TextAlign.Left,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 HorizontalDivider(
                     modifier = Modifier.fillMaxWidth(),
@@ -105,7 +110,7 @@ fun ResultsRow(
                             style = style,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Left,
-                            color = resultColor
+                            color = textColor
                         )
                     }
                 }
@@ -120,7 +125,7 @@ fun ResultsRow(
                 Text(
                     text = src.trim(),
                     style = if (isTall) monoStyle.copy(fontSize = 16.sp) else monoStyle.copy(fontSize = 12.sp),
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
                 if (returnCode != 0) {
                     Text(
@@ -132,7 +137,7 @@ fun ResultsRow(
                 Text(
                     text = dest.trim(),
                     style = style,
-                    color = MaterialTheme.colorScheme.primary
+                    color = MaterialTheme.colorScheme.onSurface
                 )
 
 
@@ -157,7 +162,7 @@ fun ResultsRow(
                             Text(
                                 text = firstHalf[index],
                                 style = style,
-                                color = resultColor
+                                color = textColor
                             )
                         }
                     }
@@ -167,7 +172,7 @@ fun ResultsRow(
                                 text = secondHalf[index],
                                 style = style,
                                 //modifier = Modifier.fillMaxWidth(),
-                                color = resultColor
+                                color = textColor
                             )
                         }
                     }
@@ -176,8 +181,7 @@ fun ResultsRow(
                             Text(
                                 text = thirdHalf[index],
                                 style = style,
-                                //modifier = Modifier.fillMaxWidth(),
-                                color = resultColor
+                                color = textColor
                             )
                         }
                     }
@@ -190,7 +194,7 @@ fun ResultsRow(
                             style = style,
                             modifier = Modifier.fillMaxWidth(),
                             textAlign = TextAlign.Left,
-                            color = MaterialTheme.colorScheme.error
+                            color = textColor // was always error -- painted good results red
                         )
                     }
                 }

@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AlertDialogDefaults.titleContentColor
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -88,8 +89,10 @@ fun HistoryScreen(
             CenterAlignedTopAppBar(
                 modifier = barModifier,
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = MaterialTheme.colorScheme.primaryContainer,
-                    titleContentColor = MaterialTheme.colorScheme.onPrimaryContainer
+
+                    containerColor = topBarContainerColor(),
+                    titleContentColor = if (isDarkScheme()) MaterialTheme.colorScheme.onSurface
+                    else MaterialTheme.colorScheme.onPrimaryContainer
                 ),
                 navigationIcon = {
                     Button(

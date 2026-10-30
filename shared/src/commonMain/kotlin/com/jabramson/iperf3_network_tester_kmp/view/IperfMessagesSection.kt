@@ -103,9 +103,9 @@ fun IperfMessagesSection(
         maxHeight = 160.dp
     } else {
         fontSize = if (isActive || isErrors || isDebugMode) {
-            if (isTiny) 12.sp
-            else if (isTall || isWide) 17.sp
-            else 15.sp
+            if (isTiny) 11.sp
+            else if (isTall || isWide) 12.sp
+            else 10.sp
 
         } else {
             if (isTall) 14.sp else {
@@ -113,17 +113,17 @@ fun IperfMessagesSection(
             }
         }
 
-        if (!isDebugMode) {
+        maxHeight = if (!isDebugMode) {
             if (isErrors || isActive) {
-                maxHeight = 900.dp
+                800.dp
             } else {
-                maxHeight = 600.dp
+                500.dp
             }
         } else {
             if (isActive || isErrors) {
-                maxHeight = if (isTall) 160.dp else 100.dp
+                if (isTall && !isWide) 115.dp else 80.dp
             } else {
-                maxHeight = if (isTall && !isWide && !isTiny) 120.dp else 90.dp
+                if (isTall && !isWide && !isTiny) 100.dp else 70.dp
             }
         }
     }
@@ -142,8 +142,8 @@ fun IperfMessagesSection(
                     .height(maxHeight)
             ) {
                 Text("iPerf3 Messages",
-                    style = style,
-                    color = MaterialTheme.colorScheme.tertiaryFixedDim,
+                    style = MaterialTheme.typography.titleSmall,
+                    color = MaterialTheme.colorScheme.onTertiaryContainer,
                     modifier = Modifier.padding(top = 2.dp, start = 10.dp))
                 HorizontalDivider(
                     thickness = 1.dp,
@@ -159,9 +159,9 @@ fun IperfMessagesSection(
                                 modifier = Modifier.padding(start = 10.dp)
                             )
                             CircularProgressIndicator(
-                                modifier = Modifier.align(Alignment.CenterVertically).size(14.dp)
-                                    .padding(top = 2.dp, start = 10.dp),
-                                strokeWidth = 2.dp
+                                modifier = Modifier
+                                    .align(Alignment.CenterVertically)
+                                    .padding(top = 2.dp, bottom = 2.dp),
                             )
                         }
                     }

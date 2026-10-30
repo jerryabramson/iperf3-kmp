@@ -48,7 +48,9 @@ fun UploadDownload(
     isRunning: Boolean = false,
     setUploadDownload: (String) -> Unit = {})
 {
-    val color = if (isRunning) RadioButtonDefaults.colors().disabledSelectedColor else RadioButtonDefaults.colors().selectedColor
+    // Labels are content, not accents: only the radio dot carries the primary color.
+    val color = if (isRunning) MaterialTheme.colorScheme.onSurface.copy(alpha = 0.38f)
+    else MaterialTheme.colorScheme.onSurface
     Column(
         horizontalAlignment = Alignment.Start,
         modifier = Modifier.selectableGroup().wrapContentWidth()

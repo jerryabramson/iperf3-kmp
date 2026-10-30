@@ -7,10 +7,6 @@
 
 package com.jabramson.iperf3_network_tester_kmp.ui.theme
 
-//import android.R.color.white
-//import android.R.id.primary
-//import android.app.Activity
-//import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
@@ -24,13 +20,16 @@ import androidx.compose.runtime.Composable
 //import androidx.core.view.WindowCompat
 //import androidx.room.ForeignKey
 
+
 val DarkColorScheme = darkColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-    onError = Purple40,
-    background = Black,
-    onErrorContainer = Red90,
+    // Was Purple40/PurpleGrey40/Pink40 -- those are *light-mode* tones and read
+    // as dim mid-purple/brown on black. Dark schemes need the lighter 80 tones.
+    primary = Purple80,
+    secondary = PurpleGrey80,
+    tertiary = Pink80Dark,
+    // onError keeps the M3 default (dark text on the light error color)
+    background = Black,          // true OLED black; use Color(0xFF141218) for M3 surface tone
+    onErrorContainer = SoftRed,  // was pure 0xFFF00000 -- harsh on black
     surfaceDim =  Grey40
 )
 
