@@ -565,10 +565,13 @@ static int run_iperf3_locked(char **argv, int argc, const struct IperfCallbacks 
     int monitor_create_rc = pthread_create(&monitor_thread, NULL, monitorThreadFunc, monitor_args);
     IPERF_LOG("iperf3_bridge_native_iperf3: pthread_create(monitor) rc=%d", monitor_create_rc);
 
-    /* Notify start */
-    if (callbacks->on_output) {
-        callbacks->on_output(callbacks->ctx, "{iPerf3 Bridge} ▶ iPerf3 client request.");
-    }
+    /* Notify start:
+     *   Similar to the error processing, and completion processing below
+     *   we will use stdout to ensure that the message below comes from us
+     *   in sequence with the stdout messasges from iperf3
+     */
+    fprintf(outfile, "%s\n", "{iPerf3 Bridge} ▶ iPerf3 client request.");
+
 
     IPERF_LOG("iperf3_bridge_native_iperf3: calling iperf_run_client...");
     int result = iperf_run_client(global_test);
@@ -601,23 +604,30 @@ static int run_iperf3_locked(char **argv, int argc, const struct IperfCallbacks 
     } else if (result < 0) {
         final_msg = "{iPerf3 Bridge} ❌ Test failed to complete successfully!";
     }
-    if (callbacks->on_output) {
-        callbacks->on_output(callbacks->ctx, final_msg);
-    }
+    // in order for our completed message to come after all other iperf3 messages,
+    // in particular 'iperf Done' we need to output this message to the still
+    // redirected stdout stream in reader_thread()
+    fprintf(outfile, "%s\n", final_msg);
 
     if (result < 0) {
-        if (callbacks->on_error) {
-            if (saved_errno == EPIPE) {
-                char errbuf[512];
-                snprintf(errbuf, sizeof(errbuf),
-                        "%s (SIGPIPE/EPIPE: a socket write failed because the peer closed "
-                        "the connection — the iperf3 server likely stopped or crashed mid-test)",
-                        iperf_strerror(i_errno));
-                callbacks->on_error(callbacks->ctx, errbuf);
-            } else {
+        // similar to the stdout streaming above, we need to stream our
+        // final stderr message to stderr so they can be processed above
+        // in stderr_reader_thread()
+        if (saved_errno == EPIPE) {
+            char errorBuffer[512];
+            snprintf(errorBuffer, sizeof(errorBuffer),
+                    "%s (SIGPIPE/EPIPE: a socket write failed because the peer closed "
+                    "the connection — the iperf3 server likely stopped or crashed mid-test)",
+                    iperf_strerror(i_errno));
+            if (callbacks->on_error) {
+                callbacks->on_error(callbacks->ctx, errorBuffer);
+            }
+        } else {
+            if (callbacks->on_error) {
                 callbacks->on_error(callbacks->ctx, iperf_strerror(i_errno));
             }
         }
+
         /* The iperf return code of -1 is a catchall, the i_errno is a
          * better return value. */
         if (result == -1) {

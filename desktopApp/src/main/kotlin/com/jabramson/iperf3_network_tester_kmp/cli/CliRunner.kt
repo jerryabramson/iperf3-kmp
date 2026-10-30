@@ -361,13 +361,13 @@ object CliRunner {
                                         System.out.flush()
                                         firstBridge = false
                                     } else {
-                                            deferredMessages.add(formatMessage(message))
+                                        deferredMessages.add(formatMessage(message))
                                     }
                                 } else if (firstBridge) {
                                     writeLine()
                                     writeLine(formatMessage(message))
                                 } else if (liveRowStarted) {
-                                    deferredMessages.add(formatMessage(message))
+                                    deferredMessages.add(0, formatMessage(message))
                                 }
                             }
                         }
@@ -406,11 +406,19 @@ object CliRunner {
         synchronized(lock) {
             write("${AnsiTerminal.gotoColumn(TRACK_COLUMN)} ${AnsiTerminal.gotoColumn(1)}")
             writeLine()
-            // Exactly one rule between sections: messages, summary, then errors.
-            writeLine(AnsiTerminal.horizontalRule())
             if (deferredMessages.isNotEmpty()) {
-                deferredMessages.forEach { writeLine(it) }
+                val bridgeIndex = deferredErrorMessages.indexOf("Bridge")
+                if (bridgeIndex != -1) {
+                    val bridgeMessage = deferredErrorMessages[bridgeIndex]
+                    writeLine(AnsiTerminal.horizontalRule())
+                    formatMessage(deferredErrorMessages[bridgeIndex])
+                    deferredErrorMessages.removeAt(bridgeIndex)
+                }
                 writeLine(AnsiTerminal.horizontalRule())
+                writeLine("[${AnsiTerminal.Color.PURPLE.reverse()}iPerf3 Messages${AnsiTerminal.reset()}]")
+                deferredMessages.forEach {
+                        writeLine("\t$it")
+                }
             }
             printSummary(lastState, returnCode)
             writeLine(AnsiTerminal.horizontalRule())
