@@ -610,9 +610,12 @@ static int run_iperf3_locked(char **argv, int argc, const struct IperfCallbacks 
     fprintf(outfile, "%s\n", final_msg);
 
     if (result < 0) {
-        // similar to the stdout streaming above, we need to stream our
-        // final stderr message to stderr so they can be processed above
-        // in stderr_reader_thread()
+        // Unlike the start/final messages above, the error goes straight to
+        // on_error rather than through a pipe: stderrReaderThreadFunc only
+        // forwards "warning: " lines, so writing it to stderr would just pass
+        // it through to the real stderr. It is therefore not ordered with the
+        // output pipe -- it can arrive before the reader thread has delivered
+        // final_msg. The GUI shows errors separately; the CLI defers them.
         if (saved_errno == EPIPE) {
             char errorBuffer[512];
             snprintf(errorBuffer, sizeof(errorBuffer),

@@ -265,6 +265,9 @@ object CliRunner {
         // the "> lastInterval" check below (an omit period already leaves it at -1).
         var lastInterval = -1
         var lastOmittedCount = 0L
+        // Where this run's progress-track arrow is and which lap it's on, so each
+        // update only draws the new block and moves the arrow (see newProgressTrack).
+        val track = TrackState()
         var firstBridge = true
         val startTime = System.currentTimeMillis()
         var percentageComplete: Long = 0.toLong()
@@ -291,7 +294,7 @@ object CliRunner {
         // progress line wrapping, which breaks its in-place redraw.
         val maxTrackSize = terminalWidth - 68 // >= 12: narrower than 80 columns is refused earlier
         val maximumProgressBarSize = input.durationSecs.coerceAtMost(maxTrackSize).toLong()
-
+        val lastBridgeMessages = mutableListOf<String>()
         val executor = Iperf3Executor(
             updateProgress = { _, percentComplete ->
                 percentageComplete = percentComplete
@@ -354,20 +357,20 @@ object CliRunner {
                             if (!message.startsWith("Local Host:port") &&
                                 !message.startsWith("Remote Host:port")
                             ) {
-                                if (message.contains("Bridge")) {
+                                if (message.lowercase().contains("bridge")) {
                                     if (firstBridge) {
                                         write(AnsiTerminal.clearLine() + AnsiTerminal.gotoColumn(1))
                                         writeLine(formatMessage(message))
                                         System.out.flush()
                                         firstBridge = false
                                     } else {
-                                        deferredMessages.add(formatMessage(message))
+                                        lastBridgeMessages.add(message)
                                     }
                                 } else if (firstBridge) {
                                     writeLine()
                                     writeLine(formatMessage(message))
                                 } else if (liveRowStarted) {
-                                    deferredMessages.add(0, formatMessage(message))
+                                    deferredMessages.add(formatMessage(message))
                                 }
                             }
                         }
@@ -385,7 +388,8 @@ object CliRunner {
                             if (input.isDebugging) {
                                 writeLine("${AnsiTerminal.Color.GREY.fg()}RAW: ${state.rawOutputLine.trim()}${AnsiTerminal.reset()}")
                             }
-                            printIntervalLine(input, maximumProgressBarSize, state = state, elapsedMillis =  (System.currentTimeMillis() - startTime))
+                            printIntervalLine(input, maximumProgressBarSize, state = state, track = track,
+                                elapsedMillis =  (System.currentTimeMillis() - startTime))
                             lastInterval = state.intervalNumber.toInt()
                             lastOmittedCount = state.totalOmitted
                         }
@@ -402,27 +406,26 @@ object CliRunner {
         )
 
         val returnCode = runBlocking { executor.startTest(input) }
-
         synchronized(lock) {
             write("${AnsiTerminal.gotoColumn(TRACK_COLUMN)} ${AnsiTerminal.gotoColumn(1)}")
             writeLine()
+            if (lastBridgeMessages.isNotEmpty()) {
+                lastBridgeMessages.forEach { writeLine(formatMessage(it)) }
+            }
             if (deferredMessages.isNotEmpty()) {
-                val bridgeIndex = deferredErrorMessages.indexOf("Bridge")
-                if (bridgeIndex != -1) {
-                    val bridgeMessage = deferredErrorMessages[bridgeIndex]
-                    writeLine(AnsiTerminal.horizontalRule())
-                    formatMessage(deferredErrorMessages[bridgeIndex])
-                    deferredErrorMessages.removeAt(bridgeIndex)
-                }
                 writeLine(AnsiTerminal.horizontalRule())
                 writeLine("[${AnsiTerminal.Color.PURPLE.reverse()}iPerf3 Messages${AnsiTerminal.reset()}]")
                 deferredMessages.forEach {
                         writeLine("\t$it")
                 }
             }
-            printSummary(lastState, returnCode)
+            if (deferredErrorMessages.isNotEmpty()) {
+                writeLine(AnsiTerminal.horizontalRule())
+                writeLine("[${AnsiTerminal.Color.YELLOW.reverse()}iPerf3 Errors${AnsiTerminal.reset()}]")
+                deferredErrorMessages.forEach { writeLine("\t${AnsiTerminal.Color.RED.fg()}${it.trim()}${AnsiTerminal.reset()}") }
+            }
             writeLine(AnsiTerminal.horizontalRule())
-            deferredErrorMessages.forEach { writeLine("${AnsiTerminal.Color.RED.fg()}${it.trim()}${AnsiTerminal.reset()}") }
+            printSummary(lastState, returnCode)
         }
         if (lastState != null && returnCode == 0) {
             val result = ResultStatistics(
@@ -532,10 +535,11 @@ object CliRunner {
      * label and the bracket (matching the reference's own
      * `Skipping 1.00-2.00   + (...)` layout), not at the start of the line.
      */
-    private fun printIntervalLine(input: UiInputData, maxSize: Long, state: Iperf3RunningState, elapsedMillis: Long) {
-        val trackColor = if (state.omitted || state.stalled) AnsiTerminal.Color.RED else AnsiTerminal.Color.GREEN
+    private fun printIntervalLine(input: UiInputData, maxSize: Long, state: Iperf3RunningState,
+                                  track: TrackState, elapsedMillis: Long) {
         write(
-            newProgressTrack(input, maxSize = maxSize, elapsedMilliSeconds = elapsedMillis, colorIn = trackColor, state = state)
+            newProgressTrack(input, maxSize = maxSize, elapsedMilliSeconds = elapsedMillis,
+                track = track, state = state)
                     + gotoRestingColumn(state, state.intervalNumber, maxSize, input.isReverse)
         )
         System.out.flush()
@@ -603,17 +607,26 @@ object CliRunner {
      * @return A [String] containing the ANSI escape sequence to move the cursor to the computed resting column.
      */
     private fun gotoRestingColumn(lastState: Iperf3RunningState?, currentInterval: Long, maxSize: Long, isReverse: Boolean): String {
-        val sb = StringBuilder()
-        val right = (LEFT_COLUMN_MARKER + maxSize).toInt()
-        if (lastState == null || lastState.stalled || lastState.omitted || currentInterval < 0) {
-            val restingColumn = if (isReverse) right  else LEFT_COLUMN_MARKER
-            sb.append(AnsiTerminal.gotoColumn(restingColumn + 1))
+        val cells = maxSize.toInt()
+        val rightBracket = LEFT_COLUMN_MARKER + cells + 1
+        // Rest just past the arrow (see newProgressTrack), or at the start of the
+        // track while there's no arrow yet (omitted/stalled/not started).
+        val restingColumn = if (lastState == null || lastState.stalled || lastState.omitted || currentInterval <= 0) {
+            if (isReverse) rightBracket - 1 else LEFT_COLUMN_MARKER + 1
         } else {
-            val restingColumn = if (!isReverse)  ((LEFT_COLUMN_MARKER + ((currentInterval % maxSize).toInt())) + 2) else (right - (currentInterval % maxSize).toInt() - 2)
-            sb.append(AnsiTerminal.gotoColumn(restingColumn + 1))
+            val arrowCell = ((currentInterval - 1) % cells).toInt() + 1
+            if (isReverse) (trackCellColumn(arrowCell, cells, true) - 1).coerceAtLeast(LEFT_COLUMN_MARKER + 1)
+            else (trackCellColumn(arrowCell, cells, false) + 1).coerceAtMost(rightBracket)
         }
-        return sb.toString()
+        return AnsiTerminal.gotoColumn(restingColumn)
     }
+
+    /** Per-run progress-track state: the arrow's current column and the lap being drawn. */
+    private class TrackState(var arrowColumn: Int? = null, var lap: Long = 0)
+
+    /** Terminal column of track cell [i] (0-based from the starting end). */
+    private fun trackCellColumn(i: Int, cells: Int, isReverse: Boolean): Int =
+        if (isReverse) LEFT_COLUMN_MARKER + cells - i else LEFT_COLUMN_MARKER + 1 + i
 
     /**
      * Generates a formatted progress track string to be displayed in the terminal during
@@ -638,19 +651,18 @@ object CliRunner {
      *
      * @param input The user-provided configuration parameters encapsulated in a [UiInputData] object.
      * @param elapsedMilliSeconds The elapsed time in milliseconds since the start of the test.
-     * @param color The [AnsiTerminal.Color] used to style the progress track's visual components.
+     * @param track This run's [TrackState]: where the arrow is and which lap is being drawn.
      * @param state The current execution state of the iperf3 test, represented as [Iperf3RunningState].
      * @return A string containing the ANSI-formatted progress track ready for terminal output.
      */
     private fun newProgressTrack(input: UiInputData,
                                  elapsedMilliSeconds: Long,
                                  maxSize: Long,
-                                 colorIn: AnsiTerminal.Color,
+                                 track: TrackState,
                                  state: Iperf3RunningState) : String
     {
 
         if (input.isDebugging) return ""
-        var color = colorIn
 
         // intervalNumber is always -1 for an omitted interval, so "<= 0" alone
         // silently dropped every omitted line too, not just an uninitialized
@@ -658,83 +670,56 @@ object CliRunner {
         // omitted one.
         if (!state.omitted && state.intervalNumber < 0) return ""
 
-
-        // +1 is a one-column buffer (matching IPerf3Monitor.java's own
-        // `rightColumnMarker = leftColumnMarker + conn.getTimePeriod() + 1`), not
-        // +skip -- adding the omit window here instead inflates the right edge by
-        // the omit window's size (invisible at -O 1, since 1 happens to equal the
-        // intended buffer, but very visible at e.g. -O 5).
-        rightColumnMarker = (LEFT_COLUMN_MARKER + maxSize + 1).toInt()
+        // The track is `cells` columns between two brackets, the same width in
+        // both directions; interval k fills cell (k-1) % cells. Each update draws
+        // only what changed -- the new interval's block, the arrow in the next
+        // cell, and a blank over the previous arrow when the new block didn't
+        // land on it (an interval was skipped) -- so cells for intervals iperf3
+        // never reported stay blank. When the test runs past the last cell, the
+        // track is blanked once and the next lap is drawn in purple.
+        val cells = maxSize.toInt()
+        rightColumnMarker = LEFT_COLUMN_MARKER + cells + 1
         formattedOutputLineMarker = rightColumnMarker + RIGHT_OUTPUT_LINE_SPACING
+        val (leftBracket, rightBracket) = if (input.isReverse) "(" to "]" else "[" to ")"
+
         val sb = StringBuilder()
-        var leftBracket = "["
-        var rightBracket = "]"
-        val normalizedInterval = if (state.intervalNumber < 0) 0 else state.intervalNumber
-
-        if (normalizedInterval == maxSize) {
-            sb.append(AnsiTerminal.clearLine())
-            color = AnsiTerminal.Color.PURPLE
-        }
-
-        val intervalTrack = normalizedInterval % maxSize
-        var column1: Int = LEFT_COLUMN_MARKER + intervalTrack.toInt() + 1
-        var arrow = ARROW_RIGHT
-        if (input.isReverse) {
-            leftBracket = "("
-            column1 = rightColumnMarker - intervalTrack.toInt()
-            arrow = ARROW_LEFT
-
-        } else {
-            rightBracket = ")"
-        }
         sb.append(AnsiTerminal.reset())
         sb.append(AnsiTerminal.gotoColumn(1))
         sb.append(getStatusLabel(elapsedMillis = elapsedMilliSeconds, state =  state))
-        // No +1 here -- the reference draws both brackets directly at the markers,
-        // the same coordinate system column1 (the arrow below) uses. Offsetting
-        // just the brackets by +1 put them one column off from where the arrow's
-        // own math assumes the track edges are.
-        if (!input.isReverse) {
-            sb.append(AnsiTerminal.gotoColumn(LEFT_COLUMN_MARKER))
-            sb.append(leftBracket)
-            sb.append(AnsiTerminal.gotoColumn(rightColumnMarker - 1))
-            sb.append(rightBracket)
-        } else {
-            sb.append(AnsiTerminal.gotoColumn(LEFT_COLUMN_MARKER))
-            sb.append(leftBracket)
-            sb.append(AnsiTerminal.gotoColumn(rightColumnMarker + 1))
-            sb.append(rightBracket)
-        }
+        sb.append(AnsiTerminal.gotoColumn(LEFT_COLUMN_MARKER))
+        sb.append(leftBracket)
+        sb.append(AnsiTerminal.gotoColumn(rightColumnMarker))
+        sb.append(rightBracket)
 
-
-        if (!state.omitted) {
-            val c = if (!state.stalled) color else  AnsiTerminal.Color.RED
-            // Fill every cell already passed, not just the one next to the arrow --
-            // explicit each redrawing (not relying on earlier draws' cells persisting
-            // on screen untouched), so the bar reads as "[-->   ]" growing to
-            // "[--->  ]" as the test progresses, regardless of terminal quirks.
-            if (input.isReverse) {
-                sb.append(AnsiTerminal.gotoColumn(column1-1))
-                sb.append(c.fg())
-                sb.append(AnsiTerminal.bold())
-                sb.append(arrow)
-                sb.append(AnsiTerminal.reset())
-                sb.append(c.reverse())
-                sb.append(" ")
-                sb.append(AnsiTerminal.reset())
-            } else {
-                if (column1 < rightColumnMarker - 1) {
-                    sb.append(AnsiTerminal.gotoColumn(column1))
-                    sb.append(c.reverse())
-                    sb.append(" ")
-                    sb.append(AnsiTerminal.reset())
-                    sb.append(AnsiTerminal.gotoColumn(column1 + 1))
-                    sb.append(c.fg())
-                    sb.append(AnsiTerminal.bold())
-                    sb.append(arrow)
-                    sb.append(AnsiTerminal.reset())
-                }
+        val current = state.intervalNumber
+        if (!state.omitted && current > 0) {
+            val cell = ((current - 1) % cells).toInt()
+            val lap = (current - 1) / cells
+            if (lap != track.lap) {
+                sb.append(AnsiTerminal.gotoColumn(LEFT_COLUMN_MARKER + 1)).append(" ".repeat(cells))
+                track.lap = lap
+                track.arrowColumn = null
             }
+            val blockColumn = trackCellColumn(cell, cells, input.isReverse)
+            track.arrowColumn?.takeIf { it != blockColumn }?.let {
+                sb.append(AnsiTerminal.gotoColumn(it)).append(" ")
+            }
+            val c = when {
+                state.stalled -> AnsiTerminal.Color.RED
+                lap > 0 -> AnsiTerminal.Color.PURPLE
+                else -> AnsiTerminal.Color.GREEN
+            }
+            sb.append(AnsiTerminal.gotoColumn(blockColumn))
+            sb.append(c.reverse()).append(" ").append(AnsiTerminal.reset())
+            // Arrow in the next cell; none once the lap is full.
+            track.arrowColumn = if (cell + 1 < cells) {
+                val arrowColumn = trackCellColumn(cell + 1, cells, input.isReverse)
+                sb.append(AnsiTerminal.gotoColumn(arrowColumn))
+                sb.append(c.fg()).append(AnsiTerminal.bold())
+                sb.append(if (input.isReverse) ARROW_LEFT else ARROW_RIGHT)
+                sb.append(AnsiTerminal.reset())
+                arrowColumn
+            } else null
         }
         sb.append(AnsiTerminal.gotoColumn(formattedOutputLineMarker))
         sb.append("[")
@@ -744,6 +729,9 @@ object CliRunner {
         sb.append(AnsiTerminal.reset())
         sb.append(AnsiTerminal.box(AnsiTerminal.Color.CYAN," ${state.currentBandWidth}"))
         sb.append("]")
+        // Erase what a longer previous rate left behind ("1.32 Gbits/sec" ->
+        // "1.3 Gbits/sec" otherwise shows a stray "]"); doesn't move the cursor.
+        sb.append(AnsiTerminal.clearToEol())
         sb.append(getStatusLabel(elapsedMillis = elapsedMilliSeconds, state =  state))
         return sb.toString()
     }

@@ -10,7 +10,6 @@ package com.jabramson.iperf3_network_tester_kmp.utils
 //import android.annotation.SuppressLint
 //import androidx.compose.ui.text.intl.Locale
 
-import androidx.compose.ui.text.toLowerCase
 import com.jabramson.iperf3_network_tester_kmp.getAppUUID
 import com.jabramson.iperf3_network_tester_kmp.model.Iperf3RunningState
 import com.jabramson.iperf3_network_tester_kmp.viewmodel.UiInputData
@@ -303,7 +302,7 @@ class Iperf3OutputMonitor {
         } else if (!cleanLine.startsWith("- -") && cleanLine.trim().isNotEmpty()) {
             if (cleanLine.trim().lowercase() == "iperf done.") {
                 // no sense in including the "iperf done." message as a useful iperf3 message
-                Log.i(tag, "Final iperf3 message: '$cleanLine'");
+                Log.i(tag, "Final iperf3 message: '$cleanLine'")
             } else {
                 currentIperf3RunningState.messages.add(cleanLine)
             }
