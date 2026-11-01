@@ -277,7 +277,7 @@ class Iperf3OutputMonitor {
                                 }
                             }
                             currentIperf3RunningState.formattedOutputLine =
-                                formatString("%-12.12s %4.4s %-9.9s %10.10s",
+                                formatString("%-13.13s %4.4s %-9.9s %10.10s",
                                     intervalString,
                                     bitRateString.trim(),
                                     bitRateUnitString,

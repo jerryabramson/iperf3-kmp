@@ -252,17 +252,17 @@ fun BandwidthDisplay(omittedResult: Boolean = false,
             Text(
                 text = toWholeNumber(min, preview).trim(),
                 color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodySmall
             )
             Text(
                 text = toWholeNumber(avg, preview),
                 color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodySmall
             )
             Text(
                 text = toWholeNumber(max, preview),
                 color = MaterialTheme.colorScheme.onSurface,
-                style = MaterialTheme.typography.bodyMedium
+                style = MaterialTheme.typography.bodySmall
             )
         }
         Spacer(modifier = Modifier.height(2.dp))

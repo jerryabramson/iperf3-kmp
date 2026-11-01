@@ -125,7 +125,7 @@ fun formatGeneric(value: Int, unit: String, preview: Boolean = false): String = 
 fun formatGeneric(value: Double, unit: String, preview: Boolean = false): String {
     val ret: String
     if (!preview) {
-        val unitLengthFormat = "%${UNIT_LENGTH}.${UNIT_LENGTH}s"
+        val unitLengthFormat = "%-${UNIT_LENGTH}.${UNIT_LENGTH}s"
         ret =
             if (value != 0.toDouble())
                 formatString("%9.3f $unitLengthFormat", value,  unit)

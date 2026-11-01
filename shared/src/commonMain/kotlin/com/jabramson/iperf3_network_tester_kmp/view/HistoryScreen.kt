@@ -258,9 +258,9 @@ private fun HistoryRow(
                         result.ipv6
                     )
                     HistoryDetailLine("Start Date/Time", result.startDateTime, preview)
+                    HistoryDetailLine("Direction", result.direction)
                     HorizontalDivider(modifier = Modifier.fillMaxWidth())
                     Column(modifier = Modifier.padding(top = 4.dp, start = 10.dp, end = 10.dp)) {
-                        HistoryDetailLine("Direction", result.direction)
                         HistoryDetailLine("Duration", formatTime(result.duration, preview))
                         HistoryDetailLine("Parallel Streams", formatGeneric(result.parallelStreams, "Streams", preview))
                         HistoryDetailLine("Skip", formatGeneric(result.skip, "Omitted", preview))

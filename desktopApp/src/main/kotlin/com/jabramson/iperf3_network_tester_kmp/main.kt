@@ -74,7 +74,7 @@ private fun runGui() = application {
         icon = painterResource(Res.drawable.app_icon),
     ) {
         LaunchedEffect(Unit) {
-            window.minimumSize = Dimension(840, 600) // pixels!
+            window.minimumSize = Dimension(840, 500) // pixels!
         }
         App()
     }

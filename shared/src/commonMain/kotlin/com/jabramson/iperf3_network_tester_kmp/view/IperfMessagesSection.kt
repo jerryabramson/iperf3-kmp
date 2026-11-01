@@ -117,7 +117,7 @@ fun IperfMessagesSection(
             if (isErrors || isActive) {
                 800.dp
             } else {
-                500.dp
+                550.dp
             }
         } else {
             if (isActive || isErrors) {
