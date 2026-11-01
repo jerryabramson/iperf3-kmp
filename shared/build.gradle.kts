@@ -986,3 +986,31 @@ dependencies {
     add("kspIosSimulatorArm64", libs.androidx.room.compiler)
     add("kspJvm", libs.androidx.room.compiler)
 }
+
+// Known WSL hang: under WSL's mirrored networking (.wslconfig
+// networkingMode=Mirrored), connecting to a closed 127.0.0.1 port never gets
+// "connection refused". If a Kotlin compile daemon died without cleaning up,
+// its leftover ~/.local/share/kotlin/daemon/*.run file makes the Kotlin client
+// probe that dead port forever, so the build sits at :shared:compileKotlinJvm
+// with no CPU use. Deleting the stale .run files lets a fresh daemon start.
+// Printed as the task's first action (not at configuration time) so it still
+// shows when the configuration cache is reused, and right before the step that
+// can hang. Only on Linux inside WSL (WSL_DISTRO_NAME set, or "microsoft" in
+// the kernel version string); everything is evaluated at execution time, so
+// the action captures no project state.
+tasks.matching { it.name == "compileKotlinJvm" }.configureEach {
+    doFirst {
+        val isWsl = System.getProperty("os.name").startsWith("Linux") && (
+            System.getenv("WSL_DISTRO_NAME") != null ||
+                runCatching { File("/proc/version").readText().contains("microsoft", ignoreCase = true) }
+                    .getOrDefault(false)
+            )
+        if (isWsl) {
+            logger.warn(
+                "WARNING: If the build hangs at the :shared:compileKotlinJvm step, then interrupt " +
+                    "the gradlew build, and execute this command: " +
+                    "./gradlew --stop; rm ~/.local/share/kotlin/daemon/*.run"
+            )
+        }
+    }
+}
