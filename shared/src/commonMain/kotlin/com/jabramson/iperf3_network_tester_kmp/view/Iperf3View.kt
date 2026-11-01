@@ -161,6 +161,7 @@ fun RunIperf3Screen(viewModel: Iperf3RunViewModel = viewModel { Iperf3RunViewMod
                     max = uiExecutionState.iperf3RunningState.currentMax,
                     min = uiExecutionState.iperf3RunningState.currentMin,
                     avg = uiExecutionState.iperf3RunningState.currentAvg,
+		    preview = false
                 )
                 ResultsRow(
                     results = uiExecutionState.results,
