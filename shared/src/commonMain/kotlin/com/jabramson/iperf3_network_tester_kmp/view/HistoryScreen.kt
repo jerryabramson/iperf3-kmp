@@ -38,6 +38,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
@@ -159,6 +160,55 @@ fun HistoryScreen(
 }
 
 /**
+ * Colors for a [HistoryRow] card and its [HistoryDetailLine]s.
+ *
+ * Light mode keeps the original inverted card (dark onPrimaryContainer
+ * container, pale "on"/"Container" text). Those pairs flip in the dark
+ * scheme -- onPrimaryContainer becomes a light lavender -- which turned the
+ * card into a bright panel with dark-red text on a dark screen. In dark mode
+ * the card instead uses a calm tonal surface with on-surface text, the same
+ * approach as [topBarContainerColor] (see [isDarkScheme]).
+ */
+private data class HistoryCardColors(
+    val container: Color,
+    val downloadText: Color,
+    val uploadText: Color,
+    val summaryText: Color,
+    val deleteContainer: Color,
+    val deleteText: Color,
+    val detailLabel: Color,
+    val detailValue: Color,
+)
+
+@Composable
+private fun historyCardColors(): HistoryCardColors {
+    val cs = MaterialTheme.colorScheme
+    return if (isDarkScheme()) {
+        HistoryCardColors(
+            container = cs.surfaceContainerHigh,
+            downloadText = cs.primary,
+            uploadText = cs.error,
+            summaryText = cs.onSurface,
+            deleteContainer = cs.errorContainer,
+            deleteText = cs.onErrorContainer,
+            detailLabel = cs.onSurfaceVariant,
+            detailValue = cs.onSurface,
+        )
+    } else {
+        HistoryCardColors(
+            container = cs.onPrimaryContainer,
+            downloadText = cs.onPrimary,
+            uploadText = cs.onErrorContainer,
+            summaryText = cs.onPrimary,
+            deleteContainer = cs.onErrorContainer,
+            deleteText = cs.surface,
+            detailLabel = cs.errorContainer,
+            detailValue = cs.tertiaryContainer,
+        )
+    }
+}
+
+/**
  * A single saved-result card: minimal details (direction/host, start time,
  * average bandwidth) always visible; tapping the card toggles an expanded
  * section with the rest of the saved fields. The Delete action stays visible
@@ -177,12 +227,13 @@ private fun HistoryRow(
 
     val monoItalicStyle = mesloMonoItalicTextStyle()
     val monoBoldStyle = mesloMonoBoldTextStyle()
+    val colors = historyCardColors()
 
     Card(
         onClick = { expanded = !expanded },
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.onPrimaryContainer
+            containerColor = colors.container
         ),
     ) {
         Column(modifier = Modifier.padding(start =9.dp, end =  9.dp, top =  10.dp, bottom =  4.dp)) {
@@ -196,12 +247,12 @@ private fun HistoryRow(
                     Text(
                         text = result.direction,
                         style = if (upload) monoBoldStyle.copy(fontSize = 12.sp) else monoItalicStyle.copy(fontSize =  12.sp),
-                        color = if (upload) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary
+                        color = if (upload) colors.uploadText else colors.downloadText
                     )
                     Text(
                         text = "${result.localHost}:${result.localPort}$nl$arrow$nl${result.destinationHost}:${result.destinationPort}",
                         style = if (upload) monoBoldStyle.copy(fontSize = 12.sp) else monoItalicStyle.copy(fontSize =  12.sp),
-                        color = if (upload) MaterialTheme.colorScheme.onErrorContainer else MaterialTheme.colorScheme.onPrimary,
+                        color = if (upload) colors.uploadText else colors.downloadText,
                         textAlign = TextAlign.Left,
                     )
                     if (!expanded) {
@@ -209,19 +260,19 @@ private fun HistoryRow(
                             text = "   Date: ${result.startDateTime}",
                             style = monoStyle.copy(fontSize = 12.sp),
                             textAlign = TextAlign.Left,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            color = colors.summaryText
                         )
                         Text(
                             text = "Runtime: ${formatTime(result.rawTime, preview)}",
                             style = monoStyle.copy(fontSize = 12.sp),
                             textAlign = TextAlign.Left,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            color = colors.summaryText
                         )
                         Text(
                             text = formatSavedBandwidth(prefix =  "Average", storedKbps = result.avgbps, preview = preview),
                             style = monoStyle.copy(fontSize = 12.sp),
                             textAlign = TextAlign.Left,
-                            color = MaterialTheme.colorScheme.onPrimary
+                            color = colors.summaryText
                         )
                     }
                 }
@@ -233,13 +284,13 @@ private fun HistoryRow(
                         // Same "destructive action" color pattern as RunButton's
                         // Stop state -- onErrorContainer container, surface text.
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = MaterialTheme.colorScheme.onErrorContainer
+                            containerColor = colors.deleteContainer
                         ),
                         contentPadding = PaddingValues(horizontal = 15.dp, vertical = 2.dp),
                     ) {
                         Text(
                             text = "Delete",
-                            color = MaterialTheme.colorScheme.surface,
+                            color = colors.deleteText,
                             style = MaterialTheme.typography.labelMedium
                         )
                     }
@@ -290,7 +341,7 @@ private fun HistoryRow(
  * One label/value line inside a [HistoryRow]'s expanded details section.
  */
 @Composable
-private fun HistoryDetailLine(label: String, value: String, ipv6: Boolean = false) {
+private fun HistoryDetailLine(label: String, value: String, ipv6: Boolean = false, colors: HistoryCardColors = historyCardColors()) {
     val fontSize = if (!ipv6) 14.sp else 11.sp
 
     Row(
@@ -300,11 +351,11 @@ private fun HistoryDetailLine(label: String, value: String, ipv6: Boolean = fals
         Text(
             text = label,
             style = mesloMonoTextStyle().copy(fontSize = fontSize),
-            color = MaterialTheme.colorScheme.errorContainer
+            color = colors.detailLabel
         )
         Text(text = value,
             style = mesloMonoTextStyle().copy(fontSize = fontSize),
-            color = MaterialTheme.colorScheme.tertiaryContainer
+            color = colors.detailValue
         )
     }
 }
